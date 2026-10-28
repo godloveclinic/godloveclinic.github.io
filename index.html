@@ -231,6 +231,14 @@ table.sched{width:100%;border-collapse:collapse;min-width:640px;font-variant-num
 .map iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 .map-btn{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.25)}
 
+.parking{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.parking summary{cursor:pointer;padding:12px 14px;font-weight:700;font-size:.95rem}
+.pk-list{list-style:none;margin:0;padding:0 14px 6px;display:grid}
+.pk-list li{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-top:1px dashed var(--line);min-width:0}
+.pk-list a{font-weight:700;text-decoration:none}
+.pk-meta{grid-column:1;font-size:.85rem;color:var(--muted)}
+.pk-dist{grid-column:2;grid-row:1 / span 2;align-self:center;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pk-note{font-size:.8rem;color:var(--muted);padding:0 14px 12px;margin:0}
 footer{background:var(--surface);border-top:1px solid var(--line);padding-block:40px;font-size:.88rem;color:var(--muted)}
 footer .wrap{display:grid;gap:18px}
 footer .row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px}
@@ -572,9 +580,30 @@ footer b{color:var(--ink);font-family:var(--f-display);font-size:1.1rem}
         <div><dt>地址</dt><dd><span id="addr">106 臺北市大安區羅斯福路三段 269 巷 39 號 1 樓</span><button class="copy" data-copy="addr" type="button">複製</button></dd></div>
         <div><dt>電話</dt><dd><span id="phone">02-2365-1224</span><button class="copy" data-copy="phone" type="button">複製</button></dd></div>
         <div><dt>傳真</dt><dd>02-2363-1224</dd></div>
-        <div><dt>捷運</dt><dd>捷運松山新店線（綠線）「台電大樓站」，出站後沿羅斯福路三段往公館方向，步行約 3–5 分鐘至 269 巷</dd></div>
+        <div><dt>捷運</dt><dd>捷運松山新店線（綠線）「台電大樓站」<strong>2 號出口</strong>最近，步行約 3–5 分鐘</dd></div>
         <div><dt>公車</dt><dd>羅斯福路公車專用道「台電大樓」站下車，步行約 3–5 分鐘</dd></div>
-        <div><dt>停車</dt><dd>巷弄內停車不易，建議搭乘大眾運輸。開車可停羅斯福路三段 240 巷 7 弄一帶的收費停車場（約步行 5 分鐘）。台電大樓站旁設有 YouBike 站。</dd></div>
+        <div><dt>停車</dt><dd><span>巷弄內停車不易，建議搭乘大眾運輸。台電大樓站旁設有 YouBike 站。</span></dd>
+          <details class="parking"><summary>附近 1 公里內的停車場（16 處，依距離排列）</summary>
+          <ul class="pk-list">
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E8%BE%9B%E4%BA%A5%E6%BA%AB%E5%B7%9E%E9%AB%98%E6%9E%B6%E6%A9%8B%E4%B8%8B%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJB0_LXACpQjQRqamF8-pJ-QU" target="_blank" rel="noopener">辛亥溫州高架橋下停車場</a><span class="pk-meta">辛亥路一段100號（高架橋下）・24 小時</span><span class="pk-dist">約 160 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E6%BA%AB%E5%B7%9E%E8%A1%9752%E5%B7%B7%E5%B9%B3%E9%9D%A2%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJLQ2BFACpQjQR_1NtK8gwi8E" target="_blank" rel="noopener">溫州街52巷平面停車場</a><span class="pk-meta">溫州街52巷1號・24 小時</span><span class="pk-dist">約 200 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=Times%20%E7%BE%85%E6%96%AF%E7%A6%8F%E8%B7%AF%E4%B8%89%E6%AE%B5%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJnZ0fHPupQjQRMEYi9UTnq24" target="_blank" rel="noopener">Times 羅斯福路三段停車場</a><span class="pk-meta">羅斯福路三段240巷7弄14號旁・24 小時</span><span class="pk-dist">約 250 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E7%BE%85%E6%96%AF%E7%A6%8F%E8%B7%AF%E4%B8%89%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJkcuKQQ6pQjQR8BKwakIGVvI" target="_blank" rel="noopener">羅斯福路三停車場</a><span class="pk-meta">羅斯福路三段240巷7弄18號・24 小時</span><span class="pk-dist">約 260 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E8%87%BA%E5%A4%A7%E6%96%B0%E5%8D%97%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJ9dad7M-pQjQRN9M1F_dvjh8" target="_blank" rel="noopener">臺大新南停車場</a><span class="pk-meta">新生南路三段（臺大校內）・24 小時</span><span class="pk-dist">約 310 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E9%A9%9B%E6%9E%97%E4%BA%A4%E9%80%9A%20%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJe-R38IupQjQRWmvBQSBN5aw" target="_blank" rel="noopener">驛林交通 停車場</a><span class="pk-meta">羅斯福路三段309號・24 小時</span><span class="pk-dist">約 320 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E5%90%88%E9%BB%9E%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJxcxInIipQjQRqMx_qxUPxe4" target="_blank" rel="noopener">合點停車場</a><span class="pk-meta">溫州街30巷8號・24 小時</span><span class="pk-dist">約 360 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E5%9F%8E%E5%B8%82%E8%BB%8A%E6%97%85%20%E8%BE%9B%E4%BA%A5%E8%B7%AF%E9%AB%98%E6%9E%B6%E6%A9%8B%E4%B8%8B%E7%AB%99&amp;query_place_id=ChIJEyXGhIipQjQRmCrcIGOu6Ow" target="_blank" rel="noopener">城市車旅 辛亥路高架橋下站</a><span class="pk-meta">新生南路與辛亥高架橋下迴轉道・24 小時</span><span class="pk-dist">約 360 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E5%9F%8E%E5%B8%82%E8%BB%8A%E6%97%85%20%E5%85%AC%E9%A4%A8%E7%AB%99%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJx51UavOpQjQRYQM0DQMdUuQ" target="_blank" rel="noopener">城市車旅 公館站停車場</a><span class="pk-meta">羅斯福路三段333巷1號</span><span class="pk-dist">約 380 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=Times%20%E5%B8%AB%E5%A4%A7%E5%A4%9C%E5%B8%82%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJlbRvAA2pQjQRny7u2fLaCCM" target="_blank" rel="noopener">Times 師大夜市停車場</a><span class="pk-meta">泰順街38巷25號旁・24 小時</span><span class="pk-dist">約 510 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=Hi%20PARKING%20%E6%B5%A6%E5%9F%8E%E8%A1%97%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJDxdjIimpQjQRHTwyzrtIzKI" target="_blank" rel="noopener">Hi PARKING 浦城街停車場</a><span class="pk-meta">浦城街24-2號對面・24 小時</span><span class="pk-dist">約 520 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=Times%20%E6%B5%A6%E5%9F%8E%E8%A1%97%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJn-N5wRWpQjQRPuDzXXiXJvo" target="_blank" rel="noopener">Times 浦城街停車場</a><span class="pk-meta">浦城街1號・24 小時</span><span class="pk-dist">約 590 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E5%8F%B0%E7%81%A3%E8%81%AF%E9%80%9A%20%E5%8F%A4%E4%BA%AD%E6%A9%9F%E6%A2%B0%E5%81%9C%E8%BB%8A%E5%A1%94&amp;query_place_id=ChIJRSDwIZCpQjQRK1M-XJD_y2g" target="_blank" rel="noopener">台灣聯通 古亭機械停車塔</a><span class="pk-meta">羅斯福路三段37號・08:00–20:00（週日 10:00 起）</span><span class="pk-dist">約 690 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E5%8F%B0%E5%8C%97%E5%B8%AB%E5%A4%A7%E5%92%8C%E5%B9%B3%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJA4eQ1EupQjQRNysFBKDVDLc" target="_blank" rel="noopener">台北師大和平停車場</a><span class="pk-meta">和平東路一段127號旁・24 小時</span><span class="pk-dist">約 820 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=168Parking%20%E6%B0%B4%E6%BA%90%E5%A4%A7%E5%BB%88%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJFaTNKqmpQjQRw3AaxBLYq_E" target="_blank" rel="noopener">168Parking 水源大廈停車場</a><span class="pk-meta">羅斯福路四段92號 B1–B2・24 小時</span><span class="pk-dist">約 840 m</span></li>
+<li><a href="https://www.google.com/maps/search/?api=1&amp;query=%E6%B0%B4%E6%BA%90%E5%81%9C%E8%BB%8A%E5%A0%B4&amp;query_place_id=ChIJ6-eIbf-pQjQRges-7EkqvOo" target="_blank" rel="noopener">水源停車場</a><span class="pk-meta">汀州路三段104巷・24 小時</span><span class="pk-dist">約 870 m</span></li>
+          </ul>
+          <p class="pk-note">距離為直線距離。費率與營業時間常有變動，請以現場公告為準；點名稱可在 Google 地圖查看與導航。</p>
+          </details></div>
       </dl>
     </div>
     <div class="map">
