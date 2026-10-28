@@ -227,11 +227,9 @@ table.sched{width:100%;border-collapse:collapse;min-width:640px;font-variant-num
 .info dt{font-size:.82rem;color:var(--muted);letter-spacing:.1em}
 .info dd{margin:2px 0 0;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-weight:500}
 .copy{font:inherit;font-size:.8rem;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
-.map{border-radius:var(--r);border:1px solid var(--line);min-height:300px;display:grid;place-items:center;text-align:center;padding:24px;background:
-  repeating-linear-gradient(0deg,transparent 0 39px,var(--line) 39px 40px),
-  repeating-linear-gradient(90deg,transparent 0 39px,var(--line) 39px 40px),var(--deep-soft)}
-.map div{display:grid;gap:12px;justify-items:center;background:var(--surface);padding:20px 24px;border-radius:14px}
-.map svg{color:var(--glow)}
+.map{position:relative;border-radius:var(--r);border:1px solid var(--line);min-height:360px;overflow:hidden;background:var(--deep-soft)}
+.map iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+.map-btn{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.25)}
 
 footer{background:var(--surface);border-top:1px solid var(--line);padding-block:40px;font-size:.88rem;color:var(--muted)}
 footer .wrap{display:grid;gap:18px}
@@ -580,12 +578,8 @@ footer b{color:var(--ink);font-family:var(--f-display);font-size:1.1rem}
       </dl>
     </div>
     <div class="map">
-      <div>
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>
-        <b>主愛心靈診所</b>
-        <span style="color:var(--muted);font-size:.9rem">羅斯福路三段 269 巷 39 號 1 樓</span>
-        <a class="btn" id="mapLink" href="https://www.google.com/maps/search/?api=1&amp;query=%E4%B8%BB%E6%84%9B%E5%BF%83%E9%9D%88%E8%A8%BA%E6%89%80&amp;query_place_id=ChIJBR7hWYmpQjQRoReSRJ0greA" target="_blank" rel="noopener">在 Google 地圖開啟</a>
-      </div>
+      <iframe title="主愛心靈診所 Google 地圖" src="https://maps.google.com/maps?q=%E4%B8%BB%E6%84%9B%E5%BF%83%E9%9D%88%E8%A8%BA%E6%89%80%20%E8%87%BA%E5%8C%97%E5%B8%82%E5%A4%A7%E5%AE%89%E5%8D%80%E7%BE%85%E6%96%AF%E7%A6%8F%E8%B7%AF%E4%B8%89%E6%AE%B5269%E5%B7%B739%E8%99%9F&amp;hl=zh-TW&amp;z=17&amp;output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      <a class="btn map-btn" href="https://www.google.com/maps/search/?api=1&amp;query=%E4%B8%BB%E6%84%9B%E5%BF%83%E9%9D%88%E8%A8%BA%E6%89%80&amp;query_place_id=ChIJBR7hWYmpQjQRoReSRJ0greA" target="_blank" rel="noopener">在 Google 地圖開啟・導航</a>
     </div>
   </div>
 </section>
