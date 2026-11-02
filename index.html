@@ -242,7 +242,9 @@ table.sched{width:100%;border-collapse:collapse;min-width:640px;font-variant-num
 .pk-meta{grid-column:1;font-size:.85rem;color:var(--muted)}
 .pk-dist{grid-column:2;grid-row:1 / span 2;align-self:center;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .pk-note{font-size:.8rem;color:var(--muted);padding:0 14px 12px;margin:0}
-footer{background:var(--surface);border-top:1px solid var(--line);padding-block:40px;font-size:.88rem;color:var(--muted)}
+.news-empty{color:var(--muted);padding-block:20px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.news:empty+.news-empty,.news-empty{display:block}
+background:var(--surface);border-top:1px solid var(--line);padding-block:40px;font-size:.88rem;color:var(--muted)}
 footer .wrap{display:grid;gap:18px}
 footer .row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px}
 footer b{color:var(--ink);font-family:var(--f-display);font-size:1.1rem}
@@ -566,10 +568,9 @@ footer b{color:var(--ink);font-family:var(--f-display);font-size:1.1rem}
       <h2>最新消息</h2>
     </div>
     <ul class="news">
-      <li><time>2026-10-20</time><span class="tag">門診異動</span><span>〔範例〕國定假日門診時間調整公告</span></li>
-      <li><time>2026-10-01</time><span class="tag">講座活動</span><span>〔範例〕「與焦慮和平相處」心理健康講座開放報名</span></li>
-      <li><time>2026-09-15</time><span class="tag">診所公告</span><span>〔範例〕本診所不開放預約，請於門診時間現場掛號</span></li>
+      <!-- 有新公告時，在這裡加入 <li><time>日期</time><span class="tag">分類</span><span>標題</span></li> -->
     </ul>
+    <p class="news-empty">目前暫無最新消息。</p>
   </div>
 </section>
 
