@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>主愛心理諮商室｜預約</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
+<style>
+
+:root{--bg:#f4efe6;--card:#fff;--ink:#3d3a35;--mute:#8a8378;--line:#e6ddcd;--main:#7a9e7e;--main-d:#5f8463;--soft:#eef4ee;--warn:#c96f5b;--gold:#c9952e;--chat:#8cabd9;--bub:#fff;--me:#a6e27a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;font-size:15px;line-height:1.5;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+.top{position:sticky;top:0;z-index:20;background:#3d3a35;color:#fff;padding:9px 12px 8px}
+.top .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.clock{font-size:17px;font-weight:700;letter-spacing:.5px}
+.clock small{font-weight:400;opacity:.7;font-size:12px;margin-left:4px}
+.tb{border:0;border-radius:8px;padding:6px 10px;background:#5a564f;color:#fff;font-size:13px}
+.tb.hl{background:var(--gold)}
+.quota{font-size:12px;opacity:.85;margin-top:5px;display:flex;gap:10px;flex-wrap:wrap}
+.quota b{color:#ffd57a}
+.tabs{display:flex;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:var(--toph,74px);z-index:15;overflow-x:auto}
+.tabs button{flex:1 0 auto;border:0;background:none;padding:11px 10px;font-size:14px;color:var(--mute);border-bottom:3px solid transparent;white-space:nowrap;position:relative}
+.tabs button.on{color:var(--main-d);border-bottom-color:var(--main);font-weight:700}
+.dot{display:inline-block;min-width:17px;height:17px;border-radius:9px;background:var(--warn);color:#fff;font-size:11px;line-height:17px;padding:0 4px;margin-left:3px;vertical-align:1px}
+main{padding:12px;max-width:760px;margin:0 auto}
+.card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(60,50,30,.07)}
+.card h3{margin:0 0 10px;font-size:15px}
+.hint{font-size:12px;color:var(--mute)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{border:1.5px solid var(--line);background:#fff;border-radius:20px;padding:5px 12px;font-size:13px}
+.chip.on{border-color:var(--main);background:var(--soft);color:var(--main-d);font-weight:700}
+/* LINE 聊天 */
+.phone{background:var(--chat);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;height:min(560px,calc(100vh - 230px));min-height:380px}
+.phone .bar{background:#2c3e57;color:#fff;padding:10px 12px;font-weight:700;font-size:14px;display:flex;justify-content:space-between}
+.msgs{flex:1;overflow-y:auto;padding:10px}
+.m{display:flex;margin:8px 0;gap:6px;align-items:flex-end}
+.m.me{justify-content:flex-end}
+.av{width:30px;height:30px;border-radius:50%;background:var(--main);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;flex:0 0 30px}
+.b{max-width:78%;background:var(--bub);border-radius:16px;padding:8px 11px;white-space:pre-wrap;word-break:break-word;font-size:14px}
+.me .b{background:var(--me)}
+.t{font-size:10px;color:#eef;white-space:nowrap}
+.cf{background:#fff;border-radius:14px;max-width:80%;overflow:hidden}
+.cf .tx{padding:10px 12px;white-space:pre-wrap;font-size:14px}
+.cf .ac{display:flex;border-top:1px solid #eee}
+.cf .ac button{flex:1;border:0;background:#fff;padding:10px;color:#2a6fd6;font-weight:700}
+.cf .ac button+button{border-left:1px solid #eee}
+.cf .ac button:disabled{color:#bbb}
+.tag{font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px}
+.tag.push{background:#fde7c2;color:#8a5a00}
+.tag.reply{background:#d9f0da;color:#2f6b34}
+.menu{display:grid;grid-template-columns:1fr 1fr;background:#fff}
+.menu button{border:0;border-top:1px solid #ddd;background:#fff;padding:14px 0;font-weight:700;color:var(--main-d);font-size:15px}
+.menu button+button{border-left:1px solid #ddd}
+.inp{display:flex;gap:6px;padding:8px;background:#f2f2f2}
+.inp input{flex:1;border:1px solid #ddd;border-radius:18px;padding:7px 12px;background:#fff}
+.inp button{border:0;background:var(--main);color:#fff;border-radius:18px;padding:0 14px}
+/* 預約頁 (LIFF) */
+.liff{position:fixed;inset:0;z-index:50;background:#faf6ef;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom)}
+.liff header{background:var(--main);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:2}
+.liff header h2{margin:0;font-size:18px}
+.liff header button{border:0;background:rgba(255,255,255,.25);color:#fff;border-radius:50%;width:32px;height:32px;font-size:16px}
+.liff .wrap{padding:14px;max-width:520px;margin:0 auto}
+.ltabs{display:flex;background:#fff;border-radius:10px;overflow:hidden;margin-bottom:12px;border:1px solid var(--line)}
+.ltabs button{flex:1;border:0;background:#fff;padding:10px;color:var(--mute)}
+.ltabs button.on{background:var(--soft);color:var(--main-d);font-weight:700}
+.step{font-size:13px;color:var(--main-d);font-weight:700;margin:0 0 9px}
+.dates{display:flex;gap:7px;overflow-x:auto;padding-bottom:3px}
+.date{flex:0 0 60px;border:1.5px solid var(--line);border-radius:11px;padding:7px 0;text-align:center;background:#fff}
+.date b{display:block;font-size:16px}.date small{font-size:11px;color:var(--mute)}
+.date.on{border-color:var(--main);background:var(--soft)}
+.times{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.time{border:1.5px solid var(--line);border-radius:10px;padding:10px 0;background:#fff;font-size:15px}
+.time.on{border-color:var(--main);background:var(--main);color:#fff;font-weight:700}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+.f{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 11px;background:#fff}
+.f:focus{outline:none;border-color:var(--main)}
+.radios{display:flex;gap:7px}
+.radios button{flex:1;border:1.5px solid var(--line);border-radius:10px;padding:9px 0;background:#fff}
+.radios button.on{border-color:var(--main);background:var(--soft);color:var(--main-d);font-weight:700}
+.btn{display:block;width:100%;border:0;border-radius:11px;padding:13px;font-size:16px;font-weight:700;background:var(--main);color:#fff}
+.btn:disabled{background:#c9c3b8}
+.btn.ghost{background:#fff;color:var(--main-d);border:1.5px solid var(--main)}
+.btn.sm{display:inline-block;width:auto;padding:8px 14px;font-size:14px}
+.err{background:#fbe9e5;color:#9b4636;border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:10px}
+.ok{background:var(--soft);color:var(--main-d);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:10px}
+.summary{background:var(--soft);border-radius:10px;padding:10px;margin-bottom:10px}
+.bk{display:flex;align-items:center;gap:10px}
+.bk .info{flex:1}
+.badge{display:inline-block;font-size:11px;border-radius:20px;padding:1px 8px;margin-left:5px;vertical-align:1px}
+.st-待確認{background:#fbf1dc;color:#9a6d12}.st-已確認{background:var(--soft);color:var(--main-d)}
+.st-已取消,.st-已婉拒{background:#eee;color:#888}.st-已完成{background:#e1ecf7;color:#2f5f8f}.st-未到{background:#fbe2dd;color:#a1452f}
+.cancel{border:1.5px solid var(--line);background:#fff;border-radius:9px;padding:7px 11px;font-size:13px;color:var(--warn);white-space:nowrap}
+.cancel.sure{background:var(--warn);color:#fff;border-color:var(--warn)}
+.done{text-align:center;padding:26px 8px}.done .ic{font-size:50px}.done h2{margin:6px 0}
+/* 試算表 */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{background:#f3ead8;text-align:left;padding:7px 6px;font-weight:700;white-space:nowrap}
+.tbl td{border-top:1px solid var(--line);padding:7px 6px;vertical-align:middle}
+.tbl tr.clash td{background:#fde2e1}
+.tbl tr.past td{opacity:.55}
+.tbl select{border:1px solid var(--line);border-radius:6px;padding:3px;background:#fff;font-size:13px}
+.scroll{overflow-x:auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid2 .full{grid-column:1/-1}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.week .col{background:#faf6ef;border-radius:8px;padding:5px 3px;text-align:center;min-height:60px}
+.week .col b{display:block;font-size:13px;margin-bottom:3px}
+.slot{display:block;width:100%;border:0;border-radius:6px;background:var(--soft);color:var(--main-d);font-size:12px;padding:3px 0;margin:3px 0}
+.addslot{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.addslot select,.addslot input{border:1.5px solid var(--line);border-radius:8px;padding:7px;background:#fff}
+.set{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line);gap:10px}
+.set:first-of-type{border-top:0}
+.set input,.set select{width:110px;border:1.5px solid var(--line);border-radius:8px;padding:6px;background:#fff;text-align:right}
+.log{font-size:12px;max-height:340px;overflow-y:auto}
+.log div{border-top:1px dashed var(--line);padding:5px 0}
+.log span{color:var(--mute);margin-right:6px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#3d3a35;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:99;max-width:90%;box-shadow:0 4px 14px rgba(0,0,0,.25);transition:opacity .3s}
+.guide ol{margin:0;padding-left:20px}.guide li{margin:5px 0}
+.hide{display:none!important}
+
+/* 時段表（紅=可預約、灰=不可） */
+.legend{display:flex;gap:12px;font-size:12px;color:var(--mute);margin-bottom:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.sec{margin-top:10px}
+.sec:first-of-type{margin-top:0}
+.sec .sn{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.sgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.sl{border:0;border-radius:9px;padding:7px 0 6px;font-size:14px;font-weight:700;line-height:1.2}
+.sl small{display:block;font-size:10px;font-weight:400;opacity:.85}
+.sl.ok{background:#d9443a;color:#fff}
+.sl.ok.on{background:#8f1f18;box-shadow:0 0 0 3px #f7c9c4}
+.sl.no{background:#dcd8d2;color:#9c968d}
+.durs{display:flex;gap:7px}
+.durs button{flex:1;border:1.5px solid var(--line);border-radius:10px;padding:9px 0;background:#fff}
+.durs button.on{border-color:var(--main);background:var(--soft);color:var(--main-d);font-weight:700}
+.date.full{opacity:.45}
+.date .cnt{font-size:10px;color:#d9443a;display:block}
+/* 諮商師開放時段 */
+.blk{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.bk2{border:2px solid var(--line);border-radius:11px;padding:9px 4px;background:#fff;text-align:center;font-size:14px}
+.bk2 b{display:block;font-size:15px}
+.bk2 small{display:block;font-size:11px;color:var(--mute);min-height:15px}
+.bk2.open{border-color:var(--main);background:var(--soft)}
+.bk2.open small{color:var(--main-d);font-weight:700}
+.bk2.has{border-color:#d9a441;background:#fbf1dc}
+.bk2.has small{color:#8a5a00}
+.rowbtn{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.rowbtn .btn{flex:1}
+.date .od{font-size:10px;color:var(--main-d);display:block}
+
+.cf .acv{display:flex;flex-direction:column;border-top:1px solid #eee}
+.cf .acv button{border:0;border-top:1px solid #eee;background:#fff;padding:10px;color:#2a6fd6;font-weight:700;font-size:14px}
+.cf .acv button:first-child{border-top:0}
+.cf .acv button:disabled{color:#bbb}
+
+.sl.orig{background:#f3c76b;color:#6b4a00}
+
+/* 預約表（週表）／清冊 */
+.live{font-size:12px;color:var(--main-d);margin:-2px 0 10px;display:flex;align-items:center;gap:6px}
+.ldot{width:8px;height:8px;border-radius:50%;background:#3cb371;box-shadow:0 0 0 3px #d6f0de;animation:lp 1.6s infinite}
+@keyframes lp{50%{opacity:.4}}
+.wknav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wknav b{flex:1;text-align:center}
+.wkday h3{display:flex;align-items:center;gap:6px}
+.wkday.today{box-shadow:0 0 0 2px var(--gold)}
+.wksecs{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:700px){.wksecs{grid-template-columns:1fr 1fr}}
+.ftbl{width:100%;border-collapse:collapse;font-size:13px;border:1.5px solid #3d3a35}
+.ftbl th{background:#fff35c;padding:5px 4px;font-weight:700;border:1px solid #3d3a35;font-size:12px;line-height:1.2}
+.ftbl td{border:1px solid #bdb5a6;padding:5px;vertical-align:middle}
+.ftbl td.tl{width:48px;text-align:center;font-weight:700;font-size:15px}
+.ftbl td.c{width:56px;text-align:center}
+.ftbl th:nth-child(3),.ftbl th:nth-child(4){width:56px}
+.ftbl td.c>div{min-height:22px}
+.ftbl tr.closed td{background:#f1eee8}
+.ftbl input[type=checkbox]{width:18px;height:18px}
+.who{margin:2px 0}
+.who.leave b{text-decoration:line-through;color:#a1452f}
+.who.cont{color:var(--mute);font-size:12px}
+.pill{display:inline-block;font-size:10px;border-radius:8px;padding:1px 6px;margin:2px 3px 0 0}
+.pill.red{background:#fbe2dd;color:#a1452f}
+.pill.gold{background:#fbf1dc;color:#8a5a00}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px}
+.stats div{background:#fff;border-radius:10px;padding:8px 4px;text-align:center;font-size:11px;color:var(--mute)}
+.stats b{display:block;font-size:19px;color:var(--ink)}
+.tbl tr.dead td{color:#aaa;text-decoration:line-through}
+.tbl td.c{text-align:center}
+
+header.top2{background:var(--main);color:#fff;padding:calc(16px + env(safe-area-inset-top)) 18px 14px}
+header.top2 h1{margin:0;font-size:20px;letter-spacing:1px}
+header.top2 p{margin:3px 0 0;font-size:13px;opacity:.9}
+#app{padding:12px;max-width:820px;margin:0 auto}
+.toast{white-space:pre-line}
+.loading{text-align:center;color:var(--mute);padding:60px 0}
+.spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--main);border-radius:50%;margin:0 auto 12px;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+</style>
+</head>
+<body>
+<header class="top2"><h1 id="title">主愛心理諮商室</h1><p id="sub">線上預約</p></header>
+<main id="app"><div class="loading"><div class="spin"></div>載入中…</div></main>
+<div class="toast hide" id="toast"></div>
+<script>
+/* ===== 設定：部署前請填好這兩個值 ===== */
+const CONFIG = {
+  LIFF_ID: '請填入LIFF_ID',
+  API_URL: '請填入Apps Script網址'
+};
+/* ===================================== */
+
+const WD = ['日', '一', '二', '三', '四', '五', '六'];
+const ACTIVE = ['待確認', '已確認'];
+const SHOWN = ['待確認', '已確認', '當日請假', '已完成', '未到'];
+const STATUS = ['待確認', '已確認', '已取消', '已婉拒', '當日請假', '已完成', '未到'];
+const SECTIONS = [{ n: '上午', h: [10, 11, 12] }, { n: '下午', h: [14, 15, 16] }, { n: '晚上', h: [18, 19, 20] }];
+
+let D = null, idToken = '', profileName = '', clockOff = 0, busyReq = false;
+const $app = () => document.getElementById('app');
+
+/* ---------- 時間工具（台灣時間） ---------- */
+const nowMs = () => Date.now() + clockOff;
+const pad = n => ('0' + n).slice(-2);
+const slotT = (d, t) => Date.parse(d + 'T' + t + ':00+08:00');
+const TP = t => new Date(t + 8 * 3600e3);
+const dstr = t => { const x = TP(t); return x.getUTCFullYear() + '-' + pad(x.getUTCMonth() + 1) + '-' + pad(x.getUTCDate()); };
+const today = () => dstr(nowMs());
+const addDays = (d, n) => dstr(slotT(d, '12:00') + n * 864e5);
+const wdOf = d => WD[new Date(slotT(d, '12:00')).getUTCDay()];
+const md = d => { const p = d.split('-'); return Number(p[1]) + '/' + Number(p[2]); };
+const toMin = t => { const p = t.split(':'); return +p[0] * 60 + +p[1]; };
+const m2t = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+const durTxt = m => (m % 60 ? (m / 60).toFixed(1) : m / 60) + ' 小時';
+const endOf = b => m2t(toMin(b.time) + b.dur);
+const rng = b => b.time + '～' + endOf(b);
+const whenTxt = b => md(b.date) + '（' + wdOf(b.date) + '）' + rng(b);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const byDT = (a, b) => (a.date + a.time) < (b.date + b.time) ? -1 : 1;
+
+/* ---------- 時段規則（與後端相同） ---------- */
+const bizH = d => (D.biz[wdOf(d)] || []);
+const daySections = d => SECTIONS.map(s => ({ n: s.n, h: s.h.filter(h => bizH(d).includes(h)) })).filter(s => s.h.length);
+const sectionStarts = sec => { const a = sec.h[0] * 60, e = (sec.h[sec.h.length - 1] + 1) * 60, r = []; for (let m = a; m + 60 <= e; m += 30) r.push(m); return r; };
+const isOpenCell = (d, m) => (D.open[d] || []).includes(Math.floor(m / 60));
+function busyList(ign) {
+  if (isStaff()) return D.books.filter(b => ACTIVE.includes(b.status) && b.id !== ign).concat(D.holds.map(h => ({ date: h.date, time: h.time, dur: +h.dur, hold: true })));
+  return D.busy.concat(D.mine.filter(b => ACTIVE.includes(b.status) && b.id !== ign));
+}
+const busyAt = (d, m, ign) => busyList(ign).find(x => x.date === d && m >= toMin(x.time) && m < toMin(x.time) + +x.dur);
+function slotState(d, s, dur, ign) {
+  const t = today();
+  if (d < t || (d === t && !D.set.sameDay) || slotT(d, m2t(s)) <= nowMs()) return 'past';
+  for (let m = s; m < s + dur; m += 30) { if (!isOpenCell(d, m)) return 'closed'; if (busyAt(d, m, ign)) return 'busy'; }
+  return 'ok';
+}
+function nextDays(n, from) { const a = []; for (let i = 0; i <= n; i++) { const d = addDays(from || today(), i); if (bizH(d).length) a.push(d); } return a; }
+const bookDates = () => nextDays(D.set.days).filter(d => (d > today() || (d === today() && D.set.sameDay)) && (D.open[d] || []).some(h => slotT(d, m2t(h * 60)) > nowMs()));
+const okCount = (d, dur, ign) => { let n = 0; daySections(d).forEach(s => sectionStarts(s).forEach(m => { if (slotState(d, m, dur, ign) === 'ok') n++; })); return n; };
+const durOptions = () => { const a = []; for (let m = 60; m <= D.set.maxDur; m += 30) a.push(m); return a; };
+const canChange = b => today() < b.date;
+const canLeave = b => b.date === today() && nowMs() < slotT(b.date, endOf(b));
+const isStaff = () => D && ['諮商師', '診所', '代班'].includes(D.role);
+const canEdit = () => D && ['諮商師', '診所'].includes(D.role);
+
+/* ---------- 連線 ---------- */
+async function api(action, extra) {
+  const r = await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, idToken, displayName: profileName }, extra || {})) });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || '發生錯誤，請稍後再試');
+  return j;
+}
+async function load() {
+  D = await api('init');
+  clockOff = D.now - Date.now();
+  document.getElementById('title').textContent = D.set.name;
+  render();
+}
+async function act(fn, okMsg) {
+  if (busyReq) return;
+  busyReq = true;
+  try { const r = await fn(); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg); await load(); return r; }
+  catch (e) { toast(e.message); }
+  finally { busyReq = false; }
+}
+async function say(text) { try { if (window.liff && liff.isInClient()) await liff.sendMessages([{ type: 'text', text }]); } catch (e) { } }
+
+let toastT;
+function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.remove('hide'); t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { t.style.opacity = 0; setTimeout(() => t.classList.add('hide'), 300); }, 3000); }
+
+async function main() {
+  try {
+    await liff.init({ liffId: CONFIG.LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+    idToken = liff.getIDToken();
+    try { profileName = (await liff.getProfile()).displayName || ''; } catch (e) { }
+    await load();
+  } catch (e) {
+    $app().innerHTML = '<div class="card"><div class="err">' + esc(e.message || '無法開啟') + '</div>請關閉後從 LINE 官方帳號重新開啟。</div>';
+  }
+}
+
+/* ================= 畫面 ================= */
+function render() {
+  document.getElementById('sub').textContent = isStaff() ? (D.role === '代班' ? '今日代班｜預約表' : D.role + '｜預約管理') : '線上預約';
+  $app().innerHTML = isStaff() ? renderStaff() : renderClient();
+}
+
+/* ================= 個案 ================= */
+const L = { tab: 'book', date: null, start: null, dur: 60, fd: null, err: '', done: null, sure: {}, resched: null, leave: null, reason: '' };
+
+function renderClient() {
+  if (!L.fd) L.fd = { name: D.me.name || profileName || '', note: '' };
+  let h = '';
+  if (L.done) {
+    return '<div class="card done"><div class="ic">' + L.done.ic + '</div><h2>' + L.done.title + '</h2><p class="hint">' + L.done.sub + '</p>' +
+      '<button class="btn" onclick="closeOrBack()">關閉</button></div>';
+  }
+  h += '<div class="ltabs"><button class="' + (L.tab === 'book' ? 'on' : '') + '" onclick="L.tab=\'book\';L.err=\'\';render()">預約時間表</button><button class="' + (L.tab === 'mine' ? 'on' : '') + '" onclick="L.tab=\'mine\';L.err=\'\';L.resched=null;render()">我的預約</button></div>';
+  if (L.err) h += '<div class="err">' + esc(L.err) + '</div>';
+  return h + (L.tab === 'book' ? renderBook() : renderMine());
+}
+function closeOrBack() { L.done = null; L.tab = 'mine'; if (window.liff && liff.isInClient()) liff.closeWindow(); else render(); }
+
+function renderBook() {
+  let h = '';
+  const rb = L.resched ? D.mine.find(b => b.id === L.resched) : null, ign = rb ? rb.id : null;
+  if (rb) h += '<div class="card" style="background:#fbf1dc"><b>🔄 改期中</b><div class="hint" style="margin:4px 0 8px">原本：' + whenTxt(rb) + '<br>請選擇新的時段</div><button class="btn ghost sm" onclick="L.resched=null;L.tab=\'mine\';render()">不改了</button></div>';
+  const ds = bookDates();
+  if (!ds.length) return h + '<div class="card hint" style="text-align:center">目前沒有開放預約的時段</div>';
+  if (!durOptions().includes(L.dur)) L.dur = 60;
+  if (!L.date || !ds.includes(L.date)) L.date = ds.find(d => okCount(d, L.dur, ign)) || ds[0];
+  if (L.start != null && slotState(L.date, L.start, L.dur, ign) !== 'ok') L.start = null;
+  h += '<div class="card"><p class="step">① 選擇日期</p><div class="dates">' + ds.map(d => {
+    const n = okCount(d, L.dur, ign);
+    return '<button class="date ' + (d === L.date ? 'on' : '') + (n ? '' : ' full') + '" onclick="L.date=\'' + d + '\';L.start=null;L.err=\'\';render()"><small>週' + wdOf(d) + '</small><b>' + md(d) + '</b><span class="cnt">' + (n ? '可約' : '額滿') + '</span></button>';
+  }).join('') + '</div></div>';
+  const multi = durOptions().length > 1;
+  if (multi) h += '<div class="card"><p class="step">② 預約多久</p><div class="durs">' + durOptions().map(m => '<button class="' + (L.dur === m ? 'on' : '') + '" onclick="L.dur=' + m + ';render()">' + durTxt(m) + '</button>').join('') + '</div></div>';
+  h += '<div class="card"><p class="step">' + (multi ? '③' : '②') + ' 選擇開始時間</p><div class="legend"><span><i style="background:#d9443a"></i>可預約</span><span><i style="background:#dcd8d2"></i>已額滿／未開放</span></div>';
+  daySections(L.date).forEach(sec => {
+    h += '<div class="sec"><div class="sn">' + sec.n + '</div><div class="sgrid">';
+    sectionStarts(sec).forEach(m => {
+      const ok = slotState(L.date, m, L.dur, ign) === 'ok';
+      h += '<button class="sl ' + (ok ? 'ok' : 'no') + (L.start === m ? ' on' : '') + '" ' + (ok ? 'onclick="L.start=' + m + ';L.err=\'\';render()"' : 'disabled') + '>' + m2t(m) + '<small>～' + m2t(m + L.dur) + '</small></button>';
+    });
+    h += '</div></div>';
+  });
+  h += '</div>';
+  if (!rb) {
+    h += '<div class="card"><p class="step">' + (multi ? '④' : '③') + ' 填寫資料</p><label>姓名</label><input class="f" value="' + esc(L.fd.name) + '" oninput="L.fd.name=this.value" placeholder="您的姓名" maxlength="30">' +
+      '<label>備註（選填）</label><textarea class="f" rows="2" oninput="L.fd.note=this.value" maxlength="100" placeholder="例如：需要無障礙空間">' + esc(L.fd.note) + '</textarea>' +
+      '<p class="hint">為保護您的隱私，請不要在這裡填寫個人狀況或病史。</p></div>';
+  }
+  const ready = L.start != null;
+  h += '<div class="card">' + (ready ? '<div class="summary">' + (rb ? '新時間：' : '') + md(L.date) + '（週' + wdOf(L.date) + '）' + m2t(L.start) + '～' + m2t(L.start + L.dur) + '（' + durTxt(L.dur) + '）</div>' : '') +
+    '<button class="btn" ' + (ready && !busyReq ? '' : 'disabled') + ' onclick="' + (rb ? 'doResched()' : 'doBook()') + '">' + (ready ? (rb ? '確定改到這個時段' : '送出預約') : '請先選擇紅色的時段') + '</button>' +
+    '<p class="hint" style="text-align:center">預約日前一天以前可以取消或改期；<br>若當天才通知請假或改期，將會另外酌收 ' + D.set.fee + ' 元</p></div>';
+  return h;
+}
+
+function renderMine() {
+  let h = '';
+  if (!D.mine.length) h += '<div class="card hint" style="text-align:center">您目前沒有預約</div>';
+  D.mine.forEach(b => {
+    h += '<div class="card"><div class="bk"><div class="info"><b>' + whenTxt(b) + '</b><span class="badge st-' + b.status + '">' + b.status + '</span><div class="hint">' + durTxt(b.dur) + '</div></div></div>';
+    if (b.offer) h += '<p class="hint" style="margin:8px 0 0;color:#a67a1f">⏰ ' + esc(D.set.who) + '需要調整這個時間，請到 LINE 訊息選擇新時間</p>';
+    if (b.status === '當日請假') h += '<p class="hint" style="margin:8px 0 0">已請假，原因：' + esc(b.leaveReason) + '</p>';
+    else if (canChange(b)) {
+      h += '<div class="rowbtn"><button class="btn ghost sm" onclick="startResched(\'' + b.id + '\')">改期</button>' +
+        '<button class="cancel ' + (L.sure[b.id] ? 'sure' : '') + '" style="flex:1" onclick="doCancel(\'' + b.id + '\')">' + (L.sure[b.id] ? '確定取消？' : '取消預約') + '</button></div>';
+    } else if (canLeave(b)) {
+      if (L.leave === b.id) {
+        h += '<div style="margin-top:10px"><label>請假原因（必填）</label><textarea class="f" rows="2" maxlength="100" oninput="L.reason=this.value" placeholder="請簡單說明原因">' + esc(L.reason) + '</textarea>' +
+          '<p class="hint">若當天才通知請假或改期，將會另外酌收 ' + D.set.fee + ' 元。</p>' +
+          '<div class="rowbtn"><button class="btn ghost sm" onclick="L.leave=null;render()">先不要</button><button class="btn sm" onclick="doLeave(\'' + b.id + '\')">送出請假</button></div></div>';
+      } else {
+        h += '<p class="hint" style="margin:8px 0">今天是預約當天，無法取消或改期，如無法前來請按「請假」。</p><button class="btn ghost sm" style="width:100%" onclick="L.leave=\'' + b.id + '\';L.reason=\'\';render()">請假</button>';
+      }
+    }
+    h += '</div>';
+  });
+  h += '<p class="hint" style="text-align:center">預約日前一天以前可以自行取消或改期；<br>若當天才通知請假或改期，將會另外酌收 ' + D.set.fee + ' 元。</p>';
+  return h;
+}
+
+async function doBook() {
+  const when = md(L.date) + '（' + wdOf(L.date) + '）' + m2t(L.start) + '～' + m2t(L.start + L.dur) + '（' + durTxt(L.dur) + '）';
+  const f = { date: L.date, start: L.start, dur: L.dur, name: L.fd.name.trim(), note: L.fd.note.trim() };
+  if (!f.name) { L.err = '請填寫姓名'; render(); scrollTo(0, 0); return; }
+  busyReq = true; render();
+  try {
+    const r = await api('book', f);
+    await say('【預約】' + when + '\n姓名：' + f.name + (f.note ? '\n備註：' + f.note : ''));
+    L.done = { ic: r.status === '已確認' ? '✅' : '🙏', title: r.status === '已確認' ? '預約完成' : '已收到您的預約', sub: when + '<br>' + (r.status === '已確認' ? '期待與您見面' : esc(D.set.who) + '確認後會用 LINE 通知您') };
+    L.err = ''; L.start = null; L.fd.note = '';
+    busyReq = false; await load();
+  } catch (e) { busyReq = false; L.err = e.message; await load().catch(() => render()); scrollTo(0, 0); }
+}
+function startResched(id) { const b = D.mine.find(x => x.id === id); L.resched = id; L.tab = 'book'; L.date = b.date; L.dur = b.dur; L.start = null; L.err = ''; render(); scrollTo(0, 0); }
+async function doResched() {
+  const id = L.resched;
+  busyReq = true; render();
+  try {
+    const r = await api('reschedule', { id, date: L.date, start: L.start, dur: L.dur });
+    const nw = md(L.date) + '（' + wdOf(L.date) + '）' + m2t(L.start) + '～' + m2t(L.start + L.dur);
+    await say('【改期】原 ' + r.old + '\n→ 新 ' + nw);
+    L.done = { ic: '🔄', title: '改期完成', sub: '新時間：' + nw }; L.resched = null; L.err = '';
+    busyReq = false; await load();
+  } catch (e) { busyReq = false; L.err = e.message; await load().catch(() => render()); scrollTo(0, 0); }
+}
+async function doCancel(id) {
+  if (!L.sure[id]) { L.sure[id] = true; render(); setTimeout(() => { L.sure[id] = false; render(); }, 4000); return; }
+  L.sure[id] = false;
+  const b = D.mine.find(x => x.id === id);
+  try { await api('cancel', { id }); await say('【取消預約】' + whenTxt(b)); toast('已取消，諮商師會收到通知'); L.err = ''; }
+  catch (e) { L.err = e.message; }
+  await load();
+}
+async function doLeave(id) {
+  const b = D.mine.find(x => x.id === id);
+  try {
+    await api('leave', { id, reason: L.reason });
+    await say('【請假】' + whenTxt(b) + '\n原因：' + L.reason.trim());
+    L.leave = null; L.done = { ic: '🙏', title: '已收到您的請假', sub: '我們會轉告' + esc(D.set.who) + '。' }; L.err = '';
+    await load();
+  } catch (e) { L.err = e.message; render(); }
+}
+
+/* ================= 諮商師／診所／代班 ================= */
+let stab = 'sheet', shSub = 'week', shWeek = 0, shRange = 'week', coDate = null, DK = null;
+const CO = { id: null, reason: '', opts: [], d: null };
+
+function renderStaff() {
+  const tabs = canEdit() ? [['sheet', '📒 預約表'], ['list', '📋 預約清單'], ['open', '🗓 開放時段'], ['add', '➕ 電話預約']] : [['sheet', '📒 預約表']];
+  if (!tabs.some(t => t[0] === stab)) stab = 'sheet';
+  let h = '<div class="chips">' + tabs.map(([k, l]) => '<button class="chip ' + (stab === k ? 'on' : '') + '" onclick="stab=\'' + k + '\';render()">' + l + '</button>').join('') +
+    '<button class="chip" onclick="load().then(()=>toast(\'已更新\'))">🔄 重新整理</button></div>';
+  if (stab === 'sheet') h += renderSheet();
+  else if (stab === 'list') h += renderCoList();
+  else if (stab === 'open') h += renderOpen();
+  else h += renderAdd();
+  return h;
+}
+
+/* ---- 預約表（週表）與清冊 ---- */
+function weekDays(off) {
+  const t = slotT(today(), '12:00'), w = new Date(t).getUTCDay() || 7, mon = t - (w - 1) * 864e5 + off * 7 * 864e5, a = [];
+  for (let i = 0; i < 5; i++) a.push(dstr(mon + i * 864e5));
+  return a;
+}
+const hLabel = h => { const f = x => x > 12 ? x - 12 : x; return f(h) + '-' + f(h + 1); };
+const contactOf = b => b.phone ? esc(b.phone) : (b.uid ? '<span class="hint">LINE 預約</span>' : '');
+function badges(b) {
+  let x = '';
+  if (b.extra) x += '<span class="pill red">' + esc(b.extra) + '</span>';
+  if (b.history) x += '<span class="pill gold">已改期</span>';
+  if (b.offer) x += '<span class="pill gold">等個案選新時間</span>';
+  if (b.status === '待確認') x += '<span class="pill gold">待確認</span>';
+  return x;
+}
+const paidBox = b => '<input type="checkbox" ' + (b.paid ? 'checked' : '') + (canEdit() ? ' onclick="setPaid(\'' + b.id + '\',this.checked)"' : ' disabled') + '>';
+function setPaid(id, v) { act(() => api('paid', { id, value: v })); }
+
+function renderSheet() {
+  let h = '<div class="chips"><button class="chip ' + (shSub === 'week' ? 'on' : '') + '" onclick="shSub=\'week\';render()">週表</button><button class="chip ' + (shSub === 'list' ? 'on' : '') + '" onclick="shSub=\'list\';render()">清冊</button></div>';
+  h += '<div class="live"><span class="ldot"></span>最後更新 ' + new Date(nowMs()).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit' }) + '</div>';
+  return h + (shSub === 'week' ? renderWeek() : renderRoster());
+}
+function renderWeek() {
+  const days = weekDays(shWeek);
+  let h = '<div class="card wknav"><button class="btn ghost sm" onclick="shWeek--;render()">◀ 上週</button><b>' + md(days[0]) + '～' + md(days[4]) + '</b><button class="btn ghost sm" onclick="shWeek=0;render()">本週</button><button class="btn ghost sm" onclick="shWeek++;render()">下週 ▶</button></div>';
+  days.forEach(d => {
+    h += '<div class="card wkday' + (d === today() ? ' today' : '') + '"><h3>' + md(d) + '（' + wdOf(d) + '）' + (d === today() ? '<span class="pill gold">今天</span>' : '') + '</h3><div class="wksecs">';
+    const secs = daySections(d);
+    if (!secs.length) h += '<div class="hint">休診</div>';
+    secs.forEach(sec => {
+      h += '<table class="ftbl"><tr><th>時段</th><th>個案</th><th>臨時<br>取消</th><th>諮商師<br>已領</th></tr>';
+      sec.h.forEach(hr => {
+        const a = hr * 60, e = a + 60;
+        const list = D.books.filter(b => b.date === d && SHOWN.includes(b.status) && toMin(b.time) < e && toMin(b.time) + b.dur > a).sort(byDT);
+        const blk = D.holds.filter(x => x.date === d && toMin(x.time) < e && toMin(x.time) + +x.dur > a);
+        const open = (D.open[d] || []).includes(hr);
+        let who = '', tc = '', pd = '';
+        list.forEach(b => {
+          const leave = b.status === '當日請假';
+          if (toMin(b.time) >= a) {
+            who += '<div class="who' + (leave ? ' leave' : '') + '"><b>' + esc(b.name) + '</b> <span class="hint">' + rng(b) + '</span><br>' + contactOf(b) + badges(b) + '</div>';
+            tc += '<div>' + (leave ? '✔<div class="hint">' + esc(b.fee || '') + '</div>' : '') + '</div>';
+            pd += '<div>' + paidBox(b) + '</div>';
+          } else who += '<div class="who cont">↳ ' + esc(b.name) + '（續到 ' + endOf(b) + '）</div>';
+        });
+        blk.forEach(x => { who += '<div class="who cont">🔒 諮商師保留 ' + x.time + '～' + m2t(toMin(x.time) + +x.dur) + '</div>'; });
+        if (!who) who = '<span class="hint">' + (open ? '' : '未開放') + '</span>';
+        h += '<tr class="' + (open ? '' : 'closed') + '"><td class="tl">' + hLabel(hr) + '</td><td>' + who + '</td><td class="c">' + tc + '</td><td class="c">' + pd + '</td></tr>';
+      });
+      h += '</table>';
+    });
+    h += '</div></div>';
+  });
+  return h;
+}
+function renderRoster() {
+  const t = today(), wk = weekDays(0), ym = t.slice(0, 7);
+  const inRange = b => shRange === 'today' ? b.date === t : shRange === 'week' ? (b.date >= wk[0] && b.date <= wk[4]) : shRange === 'month' ? b.date.slice(0, 7) === ym : true;
+  const list = D.books.filter(inRange).sort(byDT);
+  const act2 = list.filter(b => SHOWN.includes(b.status) && b.status !== '當日請假');
+  const cnt = { n: act2.length, leave: list.filter(b => b.status === '當日請假').length, cancel: list.filter(b => b.status === '已取消' || b.status === '已婉拒').length, extra: list.filter(b => b.extra && SHOWN.includes(b.status)).length, paid: act2.filter(b => b.paid).length };
+  const rg = [['today', '今天'], ['week', '本週'], ['month', '本月'], ['all', '全部']];
+  let h = '<div class="chips">' + rg.map(([k, l]) => '<button class="chip ' + (shRange === k ? 'on' : '') + '" onclick="shRange=\'' + k + '\';render()">' + l + '</button>').join('') + '</div>';
+  h += '<div class="stats"><div><b>' + cnt.n + '</b>預約</div><div><b>' + cnt.leave + '</b>臨時取消</div><div><b>' + cnt.cancel + '</b>已取消</div><div><b>' + cnt.extra + '</b>需加收</div><div><b>' + cnt.paid + '/' + cnt.n + '</b>已領</div></div>';
+  h += '<div class="card"><div class="scroll"><table class="tbl"><tr><th>日期</th><th>時間</th><th>姓名</th><th>聯絡</th><th>狀態</th><th>臨時取消</th><th>加收</th><th>諮商師已領</th><th>異動紀錄</th><th>最後更新</th></tr>';
+  if (!list.length) h += '<tr><td colspan="10" class="hint" style="text-align:center;padding:16px">這段期間沒有預約</td></tr>';
+  list.forEach(b => {
+    const dead = b.status === '已取消' || b.status === '已婉拒';
+    const hist = [b.history ? '改期：' + b.history : '', b.leaveReason ? '請假：' + b.leaveReason : '', b.note].filter(Boolean).join('；');
+    const st = canEdit() ? '<select onchange="setStatus(\'' + b.id + '\',this.value)">' + STATUS.map(s => '<option' + (s === b.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' : '<span class="badge st-' + b.status + '">' + b.status + '</span>';
+    h += '<tr class="' + (dead ? 'dead' : '') + '"><td>' + md(b.date) + '（' + wdOf(b.date) + '）</td><td>' + rng(b) + '</td><td><b>' + esc(b.name) + '</b></td><td>' + contactOf(b) + '</td><td>' + st + '</td>' +
+      '<td class="c">' + (b.status === '當日請假' ? '✔ ' + esc(b.fee || '') : '') + '</td><td style="color:#c0392b">' + esc(b.extra || '') + '</td>' +
+      '<td class="c">' + (dead ? '' : paidBox(b)) + '</td><td class="hint">' + esc(hist) + '</td><td class="hint" style="white-space:nowrap">' + esc(b.updated || '') + '</td></tr>';
+  });
+  h += '</table></div><p class="hint">預約、改期、取消、請假、加收都會自動更新到這裡。' + (canEdit() ? '改「狀態」會自動通知有 LINE 的個案；改成「當日請假」會請諮商師決定是否收費。' : '') + '</p></div>';
+  return h;
+}
+function setStatus(id, st) {
+  let reason = '';
+  if (st === '當日請假') { reason = window.prompt ? (prompt('請假原因（例如：個案來電請假）', '個案來電請假') || '櫃檯登記') : '櫃檯登記'; }
+  act(() => api('setStatus', { id, status: st, reason }), r => r.viaLine === false && ['已確認', '已取消', '已婉拒'].includes(st) ? '這位個案沒有 LINE，請另外通知' : '已更新');
+}
+
+/* ---- 開放時段 ---- */
+function renderOpen() {
+  const days = nextDays(D.set.days);
+  if (!coDate || !days.includes(coDate)) coDate = days[1] || days[0];
+  const cur = D.open[coDate] || [];
+  let h = '<div class="card"><h3>選擇日期</h3><div class="dates">' + days.map(d => {
+    const n = (D.open[d] || []).length;
+    return '<button class="date ' + (d === coDate ? 'on' : '') + '" onclick="coDate=\'' + d + '\';render()"><small>週' + wdOf(d) + '</small><b>' + md(d) + '</b><span class="od">' + (n ? '開 ' + n + ' 小時' : '—') + '</span></button>';
+  }).join('') + '</div></div>';
+  h += '<div class="card"><h3>' + md(coDate) + '（週' + wdOf(coDate) + '）開放的時段</h3><p class="hint" style="margin-top:-4px">點一下切換「開放／不開放」，每格 1 小時。有人預約的時段不能關閉。</p>';
+  daySections(coDate).forEach(sec => {
+    h += '<div class="sec"><div class="sn">' + sec.n + '</div><div class="blk">';
+    sec.h.forEach(hr => {
+      const on = cur.includes(hr);
+      const bs = D.books.filter(b => ACTIVE.includes(b.status) && b.date === coDate && toMin(b.time) < (hr + 1) * 60 && toMin(b.time) + b.dur > hr * 60);
+      const label = bs.length ? bs.map(b => esc(b.name) + ' ' + rng(b)).join('<br>') : (on ? '開放' : '不開放');
+      h += '<button class="bk2 ' + (on ? 'open' : '') + (bs.length ? ' has' : '') + '" onclick="toggleHour(' + hr + ')"><b>' + hr + ':00</b><small>' + label + '</small></button>';
+    });
+    h += '</div></div>';
+  });
+  const holds = D.holds.filter(x => x.date === coDate);
+  if (holds.length) h += '<div style="margin-top:12px"><div class="sn" style="font-size:13px;font-weight:700">諮商師保留（不開放預約）</div>' + holds.map(x => '<div class="set"><span>' + x.time + '～' + m2t(toMin(x.time) + +x.dur) + '　<span class="hint">' + esc(x.why) + '</span></span><button class="cancel" onclick="releaseHold(\'' + x.bid + '\')">解除</button></div>').join('') + '</div>';
+  h += '<div class="rowbtn"><button class="btn ghost sm" onclick="setDay(true)">這天全部開放</button><button class="btn ghost sm" onclick="setDay(false)">這天全部關閉</button></div>' +
+    '<div class="rowbtn"><button class="btn sm" onclick="copyWeeks()">把這天的設定套用到之後 4 週的星期' + wdOf(coDate) + '</button></div></div>';
+  return h;
+}
+function toggleHour(hr) {
+  const cur = (D.open[coDate] || []).slice(), i = cur.indexOf(hr);
+  if (i >= 0) cur.splice(i, 1); else cur.push(hr);
+  act(() => api('setOpen', { date: coDate, hours: cur.sort((a, b) => a - b) }));
+}
+function setDay(all) {
+  const keep = bizH(coDate).filter(hr => D.books.some(b => ACTIVE.includes(b.status) && b.date === coDate && toMin(b.time) < (hr + 1) * 60 && toMin(b.time) + b.dur > hr * 60));
+  act(() => api('setOpen', { date: coDate, hours: all ? bizH(coDate) : keep }), all ? '已全部開放' : (keep.length ? '有預約的時段保留開放，其餘已關閉' : '已全部關閉'));
+}
+function copyWeeks() { act(() => api('copyWeeks', { date: coDate }), '已套用到之後 4 週的星期' + wdOf(coDate)); }
+function releaseHold(bid) { act(() => api('release', { bid }), '已解除保留，這段時間重新開放'); }
+
+/* ---- 預約清單＋請個案改時間 ---- */
+function renderCoList() {
+  const list = D.books.filter(b => ACTIVE.includes(b.status) && b.date >= today() && slotT(b.date, endOf(b)) > nowMs()).sort(byDT);
+  if (!list.length) return '<div class="card hint" style="text-align:center">目前沒有預約</div>';
+  let h = '';
+  list.forEach(b => {
+    h += '<div class="card"><div class="bk"><div class="info"><b>' + whenTxt(b) + '</b><div>' + esc(b.name) + (b.note ? '<span class="hint">　' + esc(b.note) + '</span>' : '') + '</div>' +
+      (b.offer ? '<div class="hint" style="color:#a67a1f">⏳ 已請個案改時間，等待個案選擇</div>' : '') + '</div>' +
+      (CO.id === b.id ? '' : '<button class="btn ghost sm" onclick="openCO(\'' + b.id + '\')">請個案<br>改時間</button>') + '</div>';
+    if (CO.id === b.id) h += coEditor(b);
+    h += '</div>';
+  });
+  return h;
+}
+function openCO(id) { CO.id = id; CO.reason = ''; CO.opts = []; CO.d = null; render(); }
+function optProblem(b, o) {
+  const s0 = toMin(o.time);
+  if (slotT(o.date, o.time) <= nowMs()) return '已過';
+  if (o.date === b.date && o.time === b.time) return '原時段';
+  for (let m = s0; m < s0 + b.dur; m += 30) {
+    if (!bizH(o.date).includes(Math.floor(m / 60))) return '非營業';
+    const x = busyAt(o.date, m, b.id); if (x) return x.hold ? '保留中' : '有預約';
+  }
+  return '';
+}
+const optTxt = (o, dur) => md(o.date) + '（' + wdOf(o.date) + '）' + o.time + '～' + m2t(toMin(o.time) + dur);
+function coGrid(b, d) {
+  let g = '';
+  daySections(d).forEach(sec => {
+    let cells = '';
+    sectionStarts(sec).forEach(m => {
+      const o = { date: d, time: m2t(m) }, isOrig = d === b.date && o.time === b.time, picked = CO.opts.some(x => x.date === d && x.time === o.time);
+      const p = isOrig ? '原時段' : optProblem(b, o);
+      let open = true; for (let x = m; x < m + b.dur; x += 30) if (!isOpenCell(d, x)) open = false;
+      const cls = picked ? 'ok on' : isOrig ? 'orig' : p ? 'no' : 'ok';
+      cells += '<button class="sl ' + cls + '" ' + (p && !picked ? 'disabled' : 'onclick="coToggle(\'' + d + '\',\'' + o.time + '\')"') + '>' + m2t(m) + '<small>' + (p ? (p === '已過' || p === '非營業' ? '—' : p) : (!open ? '未開放' : '～' + m2t(m + b.dur))) + '</small></button>';
+    });
+    if (cells) g += '<div class="sec"><div class="sn">' + sec.n + '</div><div class="sgrid">' + cells + '</div></div>';
+  });
+  return g || '<div class="hint">這天沒有營業時段</div>';
+}
+function coToggle(d, t) {
+  const i = CO.opts.findIndex(x => x.date === d && x.time === t);
+  if (i >= 0) CO.opts.splice(i, 1);
+  else { if (CO.opts.length >= 3) return toast('最多提供 3 個時段'); CO.opts.push({ date: d, time: t }); CO.opts.sort((x, y) => (x.date + x.time) < (y.date + y.time) ? -1 : 1); }
+  render();
+}
+function coEditor(b) {
+  const days = nextDays(D.set.days).filter(x => x !== b.date);
+  if (!CO.d || !days.includes(CO.d)) CO.d = days.find(x => x > b.date) || days[0];
+  return '<div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px">' +
+    '<label>原因（選填，會告訴個案）</label><input class="f" value="' + esc(CO.reason) + '" oninput="CO.reason=this.value" maxlength="40" placeholder="例如：臨時要開會">' +
+    '<label>① 當天往前／往後（' + md(b.date) + '（' + wdOf(b.date) + '），點選時段）</label>' +
+    '<div class="legend"><span><i style="background:#d9443a"></i>可選</span><span><i style="background:#8f1f18"></i>已選</span><span><i style="background:#f3c76b"></i>原時段</span><span><i style="background:#dcd8d2"></i>不可選</span></div>' + coGrid(b, b.date) +
+    '<label>② 改到其他日期（選日期後點選時段）</label><select class="f" onchange="CO.d=this.value;render()">' + days.map(x => '<option value="' + x + '"' + (x === CO.d ? ' selected' : '') + '>' + md(x) + '（' + wdOf(x) + '）</option>').join('') + '</select>' +
+    '<div style="margin-top:8px">' + coGrid(b, CO.d) + '</div>' +
+    '<label>已選的時段（每段 ' + durTxt(b.dur) + '，最多 3 個）</label>' +
+    (CO.opts.length ? CO.opts.map((o, i) => '<div class="set"><span>' + optTxt(o, b.dur) + '</span><button class="cancel" onclick="CO.opts.splice(' + i + ',1);render()">✕</button></div>').join('') : '<div class="hint">還沒有選</div>') +
+    '<p class="hint">「未開放」是平常沒開放預約的時間，仍可以選。個案選好新時間或選擇另外再約後，原時段會先保留，系統會再問你要不要開放。不收 ' + D.set.fee + ' 元。</p>' +
+    '<div class="rowbtn"><button class="btn ghost sm" onclick="CO.id=null;render()">取消</button><button class="btn sm" ' + (CO.opts.length ? '' : 'disabled') + ' onclick="sendOffer()">傳給個案選擇</button></div></div>';
+}
+async function sendOffer() {
+  const r = await act(() => api('offer', { id: CO.id, opts: CO.opts, reason: CO.reason.trim() }), r => r.viaLine ? '已傳給個案，等待個案選擇（同時通知診所）' : '這位個案沒有 LINE，已通知診所，請電話聯絡');
+  if (r) CO.id = null;
+  render();
+}
+
+/* ---- 電話預約 ---- */
+function renderAdd() {
+  const dd = nextDays(D.set.days); if (!DK || !dd.includes(DK)) DK = dd[1] || dd[0];
+  const starts = []; daySections(DK).forEach(s => sectionStarts(s).forEach(m => starts.push(m)));
+  const durs = []; for (let m = 60; m <= Math.max(120, D.set.maxDur); m += 30) durs.push(m);
+  return '<div class="card"><h3>新增電話預約</h3><div class="grid2">' +
+    '<div class="full"><label>日期</label><select class="f" id="da-d" onchange="DK=this.value;render()">' + dd.map(d => '<option value="' + d + '"' + (d === DK ? ' selected' : '') + '>' + md(d) + '（' + wdOf(d) + '）</option>').join('') + '</select></div>' +
+    '<div><label>開始時間</label><select class="f" id="da-s">' + starts.map(m => '<option value="' + m + '">' + m2t(m) + '</option>').join('') + '</select></div>' +
+    '<div><label>時數</label><select class="f" id="da-u">' + durs.map(m => '<option value="' + m + '">' + durTxt(m) + '</option>').join('') + '</select></div>' +
+    '<div class="full"><label>這位個案的 LINE（選填）</label><select class="f" id="da-l" onchange="const o=this.selectedOptions[0];if(o.dataset.n)document.getElementById(\'da-n\').value=o.dataset.n"><option value="">沒有 LINE／不知道</option>' +
+    D.clients.map(c => '<option value="' + esc(c.uid) + '" data-n="' + esc(c.name) + '">' + esc(c.name) + '（曾用 LINE 預約）</option>').join('') + '</select></div>' +
+    '<div><label>姓名</label><input class="f" id="da-n" maxlength="30" placeholder="例如：張先生"></div>' +
+    '<div><label>電話（選填）</label><input class="f" id="da-p" inputmode="tel" placeholder="09xxxxxxxx"></div>' +
+    '<div class="full"><button class="btn" onclick="deskAdd()">新增</button></div></div>' +
+    '<p class="hint">可以排在沒開放的時間（例如臨時加診），系統會提醒。選了個案的 LINE，他會收到 LINE 通知和前一天提醒。</p></div>';
+}
+async function deskAdd() {
+  const g = id => document.getElementById(id).value;
+  const f = { date: g('da-d'), start: +g('da-s'), dur: +g('da-u'), uid: g('da-l'), name: g('da-n').trim(), phone: g('da-p') };
+  if (!f.name) return toast('請填寫姓名');
+  const r = await act(() => api('deskAdd', f), r => [r.clash ? '⚠ 這個時段和其他預約重疊了，請再確認！' : '', r.closed ? '⚠ 這段時間沒有開放，請確認諮商師可以' : '', r.viaLine ? '已用 LINE 通知個案' : '這位個案沒有 LINE，請另外通知'].filter(Boolean).join('\n'));
+  if (r) { stab = 'sheet'; render(); }
+}
+
+main();
+
+</script>
+</body>
+</html>
