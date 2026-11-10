@@ -159,6 +159,8 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .sl.orig{background:#f3c76b;color:#6b4a00}
 
 /* 預約表（週表）／清冊 */
+.stale{font-size:13px;color:var(--main-d);background:#fff;border-radius:10px;padding:8px 12px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.stale .spin{width:14px;height:14px;border-width:2px;margin:0}
 .live{font-size:12px;color:var(--main-d);margin:-2px 0 10px;display:flex;align-items:center;gap:6px}
 .ldot{width:8px;height:8px;border-radius:50%;background:#3cb371;box-shadow:0 0 0 3px #d6f0de;animation:lp 1.6s infinite}
 @keyframes lp{50%{opacity:.4}}
@@ -218,7 +220,21 @@ const SHOWN = ['待確認', '已確認', '當日請假', '已完成', '未到'];
 const STATUS = ['待確認', '已確認', '已取消', '已婉拒', '當日請假', '已完成', '未到'];
 const SECTIONS = [{ n: '上午', h: [10, 11, 12] }, { n: '下午', h: [14, 15, 16] }, { n: '晚上', h: [18, 19, 20] }];
 
-let D = null, idToken = '', profileName = '', clockOff = 0, busyReq = false;
+let D = null, idToken = '', profileName = '', clockOff = 0, busyReq = false, STALE = false;
+// 先顯示手機記住的上次畫面，背景再抓最新資料
+let freshRes; const freshP = new Promise(r => freshRes = r);
+const CKEY = 'gl_booking_cache_v1';
+function saveCache() { try { localStorage.setItem(CKEY, JSON.stringify({ at: Date.now(), off: clockOff, D })); } catch (e) { } }
+function showCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CKEY) || 'null');
+    if (!c || !c.D || Date.now() - c.at > 7 * 864e5) return false;
+    D = c.D; clockOff = c.off || 0; STALE = true;
+    document.getElementById('title').textContent = D.set.name;
+    render();
+    return true;
+  } catch (e) { return false; }
+}
 const $app = () => document.getElementById('app');
 
 /* ---------- 時間工具（台灣時間） ---------- */
@@ -267,17 +283,23 @@ const canEdit = () => D && ['諮商師', '診所'].includes(D.role);
 
 /* ---------- 連線 ---------- */
 async function api(action, extra) {
+  if (action !== 'init') await freshP;
   const r = await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, idToken, displayName: profileName }, extra || {})) });
   const j = await r.json();
   if (!j.ok) throw new Error(j.error || '發生錯誤，請稍後再試');
   return j;
 }
 async function load() {
+  const y = window.scrollY, wasStale = STALE;
   D = await api('init');
   lastLoad = Date.now();
   clockOff = D.now - Date.now();
+  STALE = false;
+  saveCache();
   document.getElementById('title').textContent = D.set.name;
   render();
+  if (wasStale) window.scrollTo(0, y);
+  freshRes();
 }
 async function act(fn, okMsg) {
   if (busyReq) return;
@@ -304,6 +326,7 @@ let toastT;
 function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.remove('hide'); t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { t.style.opacity = 0; setTimeout(() => t.classList.add('hide'), 300); }, 3000); }
 
 async function main() {
+  const cached = showCache();
   try {
     await liff.init({ liffId: CONFIG.LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
@@ -311,14 +334,16 @@ async function main() {
     try { profileName = (await liff.getProfile()).displayName || ''; } catch (e) { }
     await load();
   } catch (e) {
-    $app().innerHTML = '<div class="card"><div class="err">' + esc(e.message || '無法開啟') + '</div>請關閉後從 LINE 官方帳號重新開啟。</div>';
+    freshRes();
+    const msg = '<div class="card"><div class="err">' + esc(e.message || '無法開啟') + '</div>請關閉後從 LINE 官方帳號重新開啟。</div>';
+    if (cached) $app().insertAdjacentHTML('afterbegin', msg); else $app().innerHTML = msg;
   }
 }
 
 /* ================= 畫面 ================= */
 function render() {
   document.getElementById('sub').textContent = isStaff() ? (D.role === '代班' ? '今日代班｜預約表' : D.role + '｜預約管理') : '線上預約';
-  $app().innerHTML = isStaff() ? renderStaff() : renderClient();
+  $app().innerHTML = (STALE ? '<div class="stale"><div class="spin"></div>正在更新最新資料…</div>' : '') + (isStaff() ? renderStaff() : renderClient());
 }
 
 /* ================= 個案 ================= */
