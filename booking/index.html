@@ -662,7 +662,7 @@ function renderAdd() {
     '<div><label>姓名</label><input class="f" id="da-n" maxlength="30" placeholder="例如：張先生"></div>' +
     '<div><label>電話（選填）</label><input class="f" id="da-p" inputmode="tel" placeholder="09xxxxxxxx"></div>' +
     '<div class="full"><button class="btn" onclick="deskAdd()">新增</button></div></div>' +
-    '<p class="hint">可以排在沒開放的時間（例如臨時加診），系統會提醒。選了個案的 LINE，他會收到 LINE 通知和前一天提醒。</p></div>';
+    '<p class="hint">可以排在沒開放的時間（例如臨時加診），系統會提醒。選了個案的 LINE，他會收到 LINE 通知，以及預約前 24 小時、3 小時的提醒。</p></div>';
 }
 async function deskAdd() {
   const g = id => document.getElementById(id).value;
