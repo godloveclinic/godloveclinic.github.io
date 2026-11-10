@@ -274,6 +274,7 @@ async function api(action, extra) {
 }
 async function load() {
   D = await api('init');
+  lastLoad = Date.now();
   clockOff = D.now - Date.now();
   document.getElementById('title').textContent = D.set.name;
   render();
@@ -285,6 +286,18 @@ async function act(fn, okMsg) {
   catch (e) { toast(e.message); }
   finally { busyReq = false; }
 }
+/* 自動更新：工作人員停在「預約表」時，每 30 秒、或切回畫面時，安靜地抓最新資料 */
+let lastLoad = 0;
+async function autoRefresh() {
+  if (busyReq || document.hidden || !D || !isStaff() || stab !== 'sheet') return;
+  if (Date.now() - lastLoad < 25000) return;
+  busyReq = true;
+  const y = window.scrollY;
+  try { await load(); window.scrollTo(0, y); } catch (e) { }
+  finally { busyReq = false; }
+}
+setInterval(autoRefresh, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) autoRefresh(); });
 async function say(text) { try { if (window.liff && liff.isInClient()) await liff.sendMessages([{ type: 'text', text }]); } catch (e) { } }
 
 let toastT;
@@ -466,7 +479,7 @@ function setPaid(id, v) { act(() => api('paid', { id, value: v })); }
 
 function renderSheet() {
   let h = '<div class="chips"><button class="chip ' + (shSub === 'week' ? 'on' : '') + '" onclick="shSub=\'week\';render()">週表</button><button class="chip ' + (shSub === 'list' ? 'on' : '') + '" onclick="shSub=\'list\';render()">清冊</button></div>';
-  h += '<div class="live"><span class="ldot"></span>最後更新 ' + new Date(nowMs()).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit' }) + '</div>';
+  h += '<div class="live"><span class="ldot"></span>每 30 秒自動更新｜最後更新 ' + new Date(nowMs()).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</div>';
   return h + (shSub === 'week' ? renderWeek() : renderRoster());
 }
 function renderWeek() {
