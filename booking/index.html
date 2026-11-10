@@ -468,7 +468,7 @@ async function doLeave(id) {
 }
 
 /* ================= 諮商師／診所／代班 ================= */
-let stab = 'sheet', shSub = 'week', shWeek = 0, shRange = 'week', coDate = null, DK = null;
+let stab = 'sheet', shSub = 'today', shWeek = 0, shRange = 'week', coDate = null, DK = null;
 const CO = { id: null, reason: '', opts: [], d: null };
 
 function renderStaff() {
@@ -503,15 +503,26 @@ const paidBox = b => '<input type="checkbox" ' + (b.paid ? 'checked' : '') + (ca
 function setPaid(id, v) { act(() => api('paid', { id, value: v })); }
 
 function renderSheet() {
-  let h = '<div class="chips"><button class="chip ' + (shSub === 'week' ? 'on' : '') + '" onclick="shSub=\'week\';render()">週表</button><button class="chip ' + (shSub === 'list' ? 'on' : '') + '" onclick="shSub=\'list\';render()">清冊</button></div>';
+  let h = '<div class="chips"><button class="chip ' + (shSub === 'today' ? 'on' : '') + '" onclick="shSub=\'today\';render()">今日</button><button class="chip ' + (shSub === 'week' ? 'on' : '') + '" onclick="shSub=\'week\';render()">週表</button><button class="chip ' + (shSub === 'list' ? 'on' : '') + '" onclick="shSub=\'list\';render()">清冊</button></div>';
   h += '<div class="live"><span class="ldot"></span>每 30 秒自動更新｜最後更新 ' + new Date(nowMs()).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</div>';
-  return h + (shSub === 'week' ? renderWeek() : renderRoster());
+  return h + (shSub === 'today' ? renderToday() : shSub === 'week' ? renderWeek() : renderRoster());
 }
 function renderWeek() {
   const days = weekDays(shWeek);
   let h = '<div class="card wknav"><button class="btn ghost sm" onclick="shWeek--;render()">◀ 上週</button><b>' + md(days[0]) + '～' + md(days[4]) + '</b><button class="btn ghost sm" onclick="shWeek=0;render()">本週</button><button class="btn ghost sm" onclick="shWeek++;render()">下週 ▶</button></div>';
-  days.forEach(d => {
-    h += '<div class="card wkday' + (d === today() ? ' today' : '') + '"><h3>' + md(d) + '（' + wdOf(d) + '）' + (d === today() ? '<span class="pill gold">今天</span>' : '') + '</h3><div class="wksecs">';
+  days.forEach(d => { h += dayCard(d); });
+  return h;
+}
+function renderToday() {
+  const d = today();
+  if (!daySections(d).length) return '<div class="card"><h3>今天 ' + md(d) + '（' + wdOf(d) + '）</h3><div class="hint">今天休診</div></div>';
+  const n = D.books.filter(b => b.date === d && SHOWN.includes(b.status)).length;
+  return dayCard(d, '<span class="hint" style="margin-left:auto;font-weight:normal">' + (n ? '共 ' + n + ' 位個案' : '今天沒有預約') + '</span>');
+}
+function dayCard(d, extra) {
+  let h = '';
+  {
+    h += '<div class="card wkday' + (d === today() ? ' today' : '') + '"><h3>' + md(d) + '（' + wdOf(d) + '）' + (d === today() ? '<span class="pill gold">今天</span>' : '') + (extra || '') + '</h3><div class="wksecs">';
     const secs = daySections(d);
     if (!secs.length) h += '<div class="hint">休診</div>';
     secs.forEach(sec => {
@@ -537,7 +548,7 @@ function renderWeek() {
       h += '</table>';
     });
     h += '</div></div>';
-  });
+  }
   return h;
 }
 function renderRoster() {
