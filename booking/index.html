@@ -658,7 +658,7 @@ function renderAdd() {
     '<div><label>開始時間</label><select class="f" id="da-s">' + starts.map(m => '<option value="' + m + '">' + m2t(m) + '</option>').join('') + '</select></div>' +
     '<div><label>時數</label><select class="f" id="da-u">' + durs.map(m => '<option value="' + m + '">' + durTxt(m) + '</option>').join('') + '</select></div>' +
     '<div class="full"><label>這位個案的 LINE（選填）</label><select class="f" id="da-l" onchange="const o=this.selectedOptions[0];if(o.dataset.n)document.getElementById(\'da-n\').value=o.dataset.n"><option value="">沒有 LINE／不知道</option>' +
-    D.clients.map(c => '<option value="' + esc(c.uid) + '" data-n="' + esc(c.name) + '">' + esc(c.name) + '（曾用 LINE 預約）</option>').join('') + '</select></div>' +
+    D.clients.slice().sort((a, b) => (b.booked - a.booked) || String(a.name).localeCompare(String(b.name), 'zh-Hant')).map(c => '<option value="' + esc(c.uid) + '" data-n="' + esc(c.name) + '">' + esc(c.name) + (c.booked ? '（曾用 LINE 預約）' : '（LINE 好友）') + '</option>').join('') + '</select></div>' +
     '<div><label>姓名</label><input class="f" id="da-n" maxlength="30" placeholder="例如：張先生"></div>' +
     '<div><label>電話（選填）</label><input class="f" id="da-p" inputmode="tel" placeholder="09xxxxxxxx"></div>' +
     '<div class="full"><button class="btn" onclick="deskAdd()">新增</button></div></div>' +
