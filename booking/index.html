@@ -367,8 +367,11 @@ async function main() {
 
 /* ================= 畫面 ================= */
 function render() {
+  // 重畫畫面時，記住日期列／表格的橫向捲動位置，避免跳回最前面
+  const keep = [...document.querySelectorAll('.dates, .scroll')].map(e => e.scrollLeft);
   document.getElementById('sub').textContent = isStaff() ? (D.role === '代班' ? '今日代班｜預約表' : D.role + '｜預約管理') : '線上預約';
   $app().innerHTML = (STALE ? '<div class="stale"><div class="spin"></div>正在更新最新資料…</div>' : '') + (isStaff() ? renderStaff() : renderClient());
+  document.querySelectorAll('.dates, .scroll').forEach((e, i) => { if (keep[i]) e.scrollLeft = keep[i]; });
 }
 
 /* ================= 個案 ================= */
