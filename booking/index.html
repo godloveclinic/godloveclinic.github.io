@@ -325,7 +325,7 @@ async function act(fn, okMsg) {
 /* 自動更新：工作人員停在「預約表」時，每 30 秒、或切回畫面時，安靜地抓最新資料 */
 let lastLoad = 0;
 async function autoRefresh() {
-  if (busyReq || document.hidden || !D || !isStaff() || stab !== 'sheet') return;
+  if (busyReq || document.hidden || !D || !isStaff() || stab !== 'sheet' || Object.keys(openDirty).length) return;
   if (Date.now() - lastLoad < 25000) return;
   busyReq = true;
   const y = window.scrollY;
@@ -658,14 +658,30 @@ function renderOpen() {
     '<div class="rowbtn"><button class="btn sm" onclick="copyWeeks()">把這天的設定套用到之後 4 週的星期' + wdOf(coDate) + '</button></div></div>';
   return h;
 }
+/* 開放／關閉時段：先在畫面上立刻變色，背景再送出（連續點很多格也不會漏） */
+let openDirty = {}, openTimer = null;
+function queueOpen(date, hours, msg) {
+  D.open[date] = hours; openDirty[date] = hours;
+  render(); if (msg) toast(msg);
+  clearTimeout(openTimer); openTimer = setTimeout(flushOpen, 400);
+}
+async function flushOpen() {
+  if (busyReq) { openTimer = setTimeout(flushOpen, 300); return; }
+  const dirty = openDirty; openDirty = {}; busyReq = true;
+  try { for (const d in dirty) await api('setOpen', { date: d, hours: dirty[d] }); }
+  catch (e) { toast(e.message); openDirty = {}; }
+  finally { busyReq = false; }
+  if (Object.keys(openDirty).length) { openTimer = setTimeout(flushOpen, 100); return; }
+  try { await load(); } catch (e) { }
+}
 function toggleHour(hr) {
   const cur = (D.open[coDate] || []).slice(), i = cur.indexOf(hr);
   if (i >= 0) cur.splice(i, 1); else cur.push(hr);
-  act(() => api('setOpen', { date: coDate, hours: cur.sort((a, b) => a - b) }));
+  queueOpen(coDate, cur.sort((a, b) => a - b));
 }
 function setDay(all) {
   const keep = bizH(coDate).filter(hr => D.books.some(b => ACTIVE.includes(b.status) && b.date === coDate && toMin(b.time) < (hr + 1) * 60 && toMin(b.time) + b.dur > hr * 60));
-  act(() => api('setOpen', { date: coDate, hours: all ? bizH(coDate) : keep }), all ? '已全部開放' : (keep.length ? '有預約的時段保留開放，其餘已關閉' : '已全部關閉'));
+  queueOpen(coDate, all ? bizH(coDate) : keep, all ? '已全部開放' : (keep.length ? '有預約的時段保留開放，其餘已關閉' : '已全部關閉'));
 }
 function copyWeeks() { act(() => api('copyWeeks', { date: coDate }), '已套用到之後 4 週的星期' + wdOf(coDate)); }
 function releaseHold(bid) { act(() => api('release', { bid }), '已解除保留，這段時間重新開放'); }
