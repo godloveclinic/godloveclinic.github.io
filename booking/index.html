@@ -202,7 +202,7 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .sheetbox{background:#fff;width:100%;max-width:480px;border-radius:16px 16px 0 0;padding:18px 16px 24px;box-shadow:0 -4px 20px rgba(0,0,0,.15)}
 .sheetbox h3{margin:0 0 4px}.sheetbox .opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
 .sheetbox .opts button{padding:12px 6px;border-radius:10px;border:2px solid var(--line);background:#fff;font-size:15px;font-weight:700}
-.sheetbox .opts button.on{border-color:var(--main);background:#eef5ef}
+.sheetbox .opts button.on{border-color:var(--main);background:#fff0f2}
 .sheetbox label.rd{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:14px}
 .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px}
 .stats div{background:#fff;border-radius:10px;padding:8px 4px;text-align:center;font-size:11px;color:var(--mute)}
@@ -221,25 +221,25 @@ header.top2 p{margin:3px 0 0;font-size:13px;opacity:.9}
 
 
 /* ===== 美化：粉圓字體、柔和暖色、診所 LOGO ===== */
-:root{--bg:#fdf6ec;--ink:#4a3f3a;--mute:#9a8c80;--line:#f0e2d0;--main:#6fa882;--main-d:#4a8560;--soft:#eaf5ec;--warn:#e0604f;--gold:#e8a93b;--heart:#e5584a}
-body{font-family:"Huninn","jf-openhuninn","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.6;background:var(--bg) radial-gradient(circle at 12% 8%,rgba(255,226,214,.55),transparent 38%),radial-gradient(circle at 92% 30%,rgba(214,238,222,.6),transparent 34%) fixed}
+:root{--bg:#fff;--card:#fff;--ink:#4a3f3a;--mute:#9a8c80;--line:#f4dde0;--main:#ee7388;--main-d:#cf4d66;--soft:#fff0f2;--warn:#e0604f;--gold:#e8a93b;--heart:#e5584a}
+body{font-family:"Huninn","jf-openhuninn","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.6}
 b,strong,h1,h2,h3,button,th{font-synthesis:weight}
-header.top2{display:flex;align-items:center;gap:13px;background:linear-gradient(135deg,#86bb97 0%,#5f9f78 100%);padding:calc(16px + env(safe-area-inset-top)) 18px 20px;border-radius:0 0 26px 26px;box-shadow:0 4px 14px rgba(95,159,120,.28);position:relative;overflow:hidden}
+header.top2{display:flex;align-items:center;gap:13px;background:linear-gradient(135deg,#ffa0a8 0%,#f0687d 100%);padding:calc(16px + env(safe-area-inset-top)) 18px 20px;border-radius:0 0 26px 26px;box-shadow:0 4px 14px rgba(240,104,125,.3);position:relative;overflow:hidden}
 header.top2::after{content:"♥";position:absolute;right:16px;top:6px;font-size:46px;color:rgba(255,255,255,.14);transform:rotate(14deg)}
 header.top2::before{content:"♥";position:absolute;right:64px;bottom:-6px;font-size:26px;color:rgba(255,255,255,.12);transform:rotate(-12deg)}
 header.top2 .logo{width:58px;height:58px;border-radius:50%;background:#fff;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.18);flex:none;object-fit:contain}
 header.top2 h1{font-size:22px;letter-spacing:2px;text-shadow:0 1px 2px rgba(0,0,0,.12)}
 header.top2 p{font-size:13px;letter-spacing:1px;opacity:.95}
-.card{border-radius:18px;box-shadow:0 2px 10px rgba(120,90,50,.08);border:1px solid rgba(240,226,208,.7)}
-.chip{border-radius:22px;padding:6px 14px;border-color:#f0e2d0}
+.card{border-radius:18px;box-shadow:0 2px 12px rgba(230,120,140,.12);border:1px solid #fbe6e9}
+.chip{border-radius:22px;padding:6px 14px;border-color:#f4dde0}
 .chip.on{background:var(--main);border-color:var(--main);color:#fff}
-.ltabs{border-radius:16px;border-color:#f0e2d0;box-shadow:0 1px 6px rgba(120,90,50,.06)}
+.ltabs{border-radius:16px;border-color:#f4dde0;box-shadow:0 1px 6px rgba(230,120,140,.1)}
 .ltabs button.on{background:var(--main);color:#fff}
-.date{border-radius:16px;border-color:#f0e2d0}
-.date.on{background:var(--soft);border-color:var(--main);box-shadow:0 0 0 2px rgba(111,168,130,.25)}
+.date{border-radius:16px;border-color:#f4dde0}
+.date.on{background:var(--soft);border-color:var(--main);box-shadow:0 0 0 2px rgba(238,115,136,.25)}
 .durs button,.radios button{border-radius:14px}
-.btn{border-radius:16px;box-shadow:0 3px 0 rgba(74,133,96,.45);padding:14px}
-.btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(74,133,96,.45)}
+.btn{border-radius:16px;box-shadow:0 3px 0 rgba(207,77,102,.4);padding:14px}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(207,77,102,.4)}
 .btn.ghost{box-shadow:none}
 .sl{border-radius:12px}
 .bk2{border-radius:14px}
