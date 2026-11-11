@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>主愛心理諮商室｜預約</title>
+<title>主愛心理諮商｜預約</title>
+<link rel="icon" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Huninn&display=swap" rel="stylesheet">
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
 <style>
 
@@ -215,10 +219,38 @@ header.top2 p{margin:3px 0 0;font-size:13px;opacity:.9}
 .spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--main);border-radius:50%;margin:0 auto 12px;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 
+
+/* ===== 美化：粉圓字體、柔和暖色、診所 LOGO ===== */
+:root{--bg:#fdf6ec;--ink:#4a3f3a;--mute:#9a8c80;--line:#f0e2d0;--main:#6fa882;--main-d:#4a8560;--soft:#eaf5ec;--warn:#e0604f;--gold:#e8a93b;--heart:#e5584a}
+body{font-family:"Huninn","jf-openhuninn","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.6;background:var(--bg) radial-gradient(circle at 12% 8%,rgba(255,226,214,.55),transparent 38%),radial-gradient(circle at 92% 30%,rgba(214,238,222,.6),transparent 34%) fixed}
+b,strong,h1,h2,h3,button,th{font-synthesis:weight}
+header.top2{display:flex;align-items:center;gap:13px;background:linear-gradient(135deg,#86bb97 0%,#5f9f78 100%);padding:calc(16px + env(safe-area-inset-top)) 18px 20px;border-radius:0 0 26px 26px;box-shadow:0 4px 14px rgba(95,159,120,.28);position:relative;overflow:hidden}
+header.top2::after{content:"♥";position:absolute;right:16px;top:6px;font-size:46px;color:rgba(255,255,255,.14);transform:rotate(14deg)}
+header.top2::before{content:"♥";position:absolute;right:64px;bottom:-6px;font-size:26px;color:rgba(255,255,255,.12);transform:rotate(-12deg)}
+header.top2 .logo{width:58px;height:58px;border-radius:50%;background:#fff;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.18);flex:none;object-fit:contain}
+header.top2 h1{font-size:22px;letter-spacing:2px;text-shadow:0 1px 2px rgba(0,0,0,.12)}
+header.top2 p{font-size:13px;letter-spacing:1px;opacity:.95}
+.card{border-radius:18px;box-shadow:0 2px 10px rgba(120,90,50,.08);border:1px solid rgba(240,226,208,.7)}
+.chip{border-radius:22px;padding:6px 14px;border-color:#f0e2d0}
+.chip.on{background:var(--main);border-color:var(--main);color:#fff}
+.ltabs{border-radius:16px;border-color:#f0e2d0;box-shadow:0 1px 6px rgba(120,90,50,.06)}
+.ltabs button.on{background:var(--main);color:#fff}
+.date{border-radius:16px;border-color:#f0e2d0}
+.date.on{background:var(--soft);border-color:var(--main);box-shadow:0 0 0 2px rgba(111,168,130,.25)}
+.durs button,.radios button{border-radius:14px}
+.btn{border-radius:16px;box-shadow:0 3px 0 rgba(74,133,96,.45);padding:14px}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(74,133,96,.45)}
+.btn.ghost{box-shadow:none}
+.sl{border-radius:12px}
+.bk2{border-radius:14px}
+.f{border-radius:14px}
+.step{font-size:14px;letter-spacing:.5px}
+.tbl th{background:#ffe98a;color:#5b4a16}
+.badge{border-radius:12px}
 </style>
 </head>
 <body>
-<header class="top2"><h1 id="title">主愛心理諮商室</h1><p id="sub">線上預約</p></header>
+<header class="top2"><img class="logo" src="logo.png" alt="GodLove"><div><h1 id="title">主愛心理諮商</h1><p id="sub">線上預約</p></div></header>
 <div id="pbar"></div><main id="app"><div class="loading"><div class="spin"></div>載入中…</div></main>
 <div class="toast hide" id="toast"></div>
 <script>
