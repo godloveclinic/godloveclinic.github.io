@@ -163,6 +163,7 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .sl.orig{background:#f3c76b;color:#6b4a00}
 
 /* 預約表（週表）／清冊 */
+#pbar{position:fixed;top:0;left:0;height:3px;width:0;background:var(--main);z-index:999;opacity:0;pointer-events:none}
 .stale{font-size:13px;color:var(--main-d);background:#fff;border-radius:10px;padding:8px 12px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
 .stale .spin{width:14px;height:14px;border-width:2px;margin:0}
 .live{font-size:12px;color:var(--main-d);margin:-2px 0 10px;display:flex;align-items:center;gap:6px}
@@ -218,7 +219,7 @@ header.top2 p{margin:3px 0 0;font-size:13px;opacity:.9}
 </head>
 <body>
 <header class="top2"><h1 id="title">主愛心理諮商室</h1><p id="sub">線上預約</p></header>
-<main id="app"><div class="loading"><div class="spin"></div>載入中…</div></main>
+<div id="pbar"></div><main id="app"><div class="loading"><div class="spin"></div>載入中…</div></main>
 <div class="toast hide" id="toast"></div>
 <script>
 /* ===== 設定：部署前請填好這兩個值 ===== */
@@ -296,16 +297,26 @@ const isStaff = () => D && ['諮商師', '診所', '代班'].includes(D.role);
 const canEdit = () => D && ['諮商師', '診所'].includes(D.role);
 
 /* ---------- 連線 ---------- */
+let pendingN = 0;
+function bar(on) {
+  const e = document.getElementById('pbar'); if (!e) return;
+  if (on) { e.style.transition = 'none'; e.style.width = '0'; e.style.opacity = '1'; void e.offsetWidth; e.style.transition = 'width 8s cubic-bezier(.1,.8,.3,1)'; e.style.width = '85%'; }
+  else { e.style.transition = 'width .2s'; e.style.width = '100%'; setTimeout(() => { if (!pendingN) e.style.opacity = '0'; }, 250); }
+}
 async function api(action, extra) {
   if (action !== 'init') await freshP;
-  const r = await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, idToken, displayName: profileName }, extra || {})) });
-  const j = await r.json();
-  if (!j.ok) throw new Error(j.error || '發生錯誤，請稍後再試');
-  return j;
+  const mut = action !== 'init';
+  if (mut && ++pendingN === 1) bar(true);
+  try {
+    const r = await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, idToken, displayName: profileName }, extra || {})) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || '發生錯誤，請稍後再試');
+    return j;
+  } finally { if (mut && --pendingN === 0) bar(false); }
 }
-async function load() {
+async function load(pre) {
   const y = window.scrollY, wasStale = STALE;
-  D = await api('init');
+  D = (pre && pre.ok) ? pre : await api('init');
   lastLoad = Date.now();
   clockOff = D.now - Date.now();
   STALE = false;
@@ -317,8 +328,8 @@ async function load() {
 }
 async function act(fn, okMsg) {
   if (busyReq) return;
-  busyReq = true;
-  try { const r = await fn(); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg); await load(); return r; }
+  busyReq = true; toast('處理中…');
+  try { const r = await fn(); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg); await load(r && r.state); return r; }
   catch (e) { toast(e.message); }
   finally { busyReq = false; }
 }
@@ -448,10 +459,10 @@ async function doBook() {
   busyReq = true; render();
   try {
     const r = await api('book', f);
-    await say('【預約】' + when + '\n姓名：' + f.name + (f.note ? '\n備註：' + f.note : ''));
+    say('【預約】' + when + '\n姓名：' + f.name + (f.note ? '\n備註：' + f.note : ''));
     L.done = { ic: r.status === '已確認' ? '✅' : '🙏', title: r.status === '已確認' ? '預約完成' : '已收到您的預約', sub: when + '<br>' + (r.status === '已確認' ? '期待與您見面' : esc(D.set.who) + '確認後會用 LINE 通知您') };
     L.err = ''; L.start = null; L.fd.note = '';
-    busyReq = false; await load();
+    busyReq = false; await load(r.state);
   } catch (e) { busyReq = false; L.err = e.message; await load().catch(() => render()); scrollTo(0, 0); }
 }
 function startResched(id) { const b = D.mine.find(x => x.id === id); L.resched = id; L.tab = 'book'; L.date = b.date; L.dur = b.dur; L.start = null; L.err = ''; render(); scrollTo(0, 0); }
@@ -461,26 +472,27 @@ async function doResched() {
   try {
     const r = await api('reschedule', { id, date: L.date, start: L.start, dur: L.dur });
     const nw = md(L.date) + '（' + wdOf(L.date) + '）' + m2t(L.start) + '～' + m2t(L.start + L.dur);
-    await say('【改期】原 ' + r.old + '\n→ 新 ' + nw);
+    say('【改期】原 ' + r.old + '\n→ 新 ' + nw);
     L.done = { ic: '🔄', title: '改期完成', sub: '新時間：' + nw }; L.resched = null; L.err = '';
-    busyReq = false; await load();
+    busyReq = false; await load(r.state);
   } catch (e) { busyReq = false; L.err = e.message; await load().catch(() => render()); scrollTo(0, 0); }
 }
 async function doCancel(id) {
   if (!L.sure[id]) { L.sure[id] = true; render(); setTimeout(() => { L.sure[id] = false; render(); }, 4000); return; }
   L.sure[id] = false;
   const b = D.mine.find(x => x.id === id);
-  try { await api('cancel', { id }); await say('【取消預約】' + whenTxt(b)); toast('已取消，諮商師會收到通知'); L.err = ''; }
+  let st = null;
+  try { const r = await api('cancel', { id }); st = r.state; say('【取消預約】' + whenTxt(b)); toast('已取消，諮商師會收到通知'); L.err = ''; }
   catch (e) { L.err = e.message; }
-  await load();
+  await load(st);
 }
 async function doLeave(id) {
   const b = D.mine.find(x => x.id === id);
   try {
-    await api('leave', { id, reason: L.reason });
-    await say('【請假】' + whenTxt(b) + '\n原因：' + L.reason.trim());
+    const r = await api('leave', { id, reason: L.reason });
+    say('【請假】' + whenTxt(b) + '\n原因：' + L.reason.trim());
     L.leave = null; L.done = { ic: '🙏', title: '已收到您的請假', sub: '我們會轉告' + esc(D.set.who) + '。' }; L.err = '';
-    await load();
+    await load(r.state);
   } catch (e) { L.err = e.message; render(); }
 }
 
@@ -668,11 +680,12 @@ function queueOpen(date, hours, msg) {
 async function flushOpen() {
   if (busyReq) { openTimer = setTimeout(flushOpen, 300); return; }
   const dirty = openDirty; openDirty = {}; busyReq = true;
-  try { for (const d in dirty) await api('setOpen', { date: d, hours: dirty[d] }); }
+  let last = null;
+  try { for (const d in dirty) last = await api('setOpen', { date: d, hours: dirty[d] }); }
   catch (e) { toast(e.message); openDirty = {}; }
   finally { busyReq = false; }
   if (Object.keys(openDirty).length) { openTimer = setTimeout(flushOpen, 100); return; }
-  try { await load(); } catch (e) { }
+  try { await load(last && last.state); } catch (e) { }
 }
 function toggleHour(hr) {
   const cur = (D.open[coDate] || []).slice(), i = cur.indexOf(hr);
