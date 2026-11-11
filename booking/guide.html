@@ -34,6 +34,13 @@ ul{padding-left:20px;margin:8px 0}li{margin:5px 0}
 .btn{display:block;text-align:center;background:var(--main);color:#fff;text-decoration:none;border-radius:12px;padding:14px;font-weight:700;margin:12px 0}
 details{border-top:1px solid var(--line);padding:10px 0}details:first-of-type{border-top:0}
 summary{cursor:pointer;font-weight:700}
+figure{margin:12px 0}
+figure img{display:block;width:100%;max-width:340px;margin:0 auto;border-radius:12px;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+figure figcaption{text-align:center;color:var(--mute);font-size:13px;margin-top:6px}
+.menuimg{position:relative;max-width:420px;margin:12px auto;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.menuimg img{display:block;width:100%}
+.menuimg .box{position:absolute;left:1%;top:1.5%;width:32%;height:48%;border:4px solid #e0442f;border-radius:14px;box-shadow:0 0 0 3px rgba(224,68,47,.25)}
+.menuimg .tag{position:absolute;left:3%;top:52%;background:#e0442f;color:#fff;font-size:13px;font-weight:700;padding:3px 10px;border-radius:12px}
 footer{text-align:center;color:var(--mute);font-size:13px;padding:10px 0 30px}
 b.g{color:var(--ok)}b.r{color:var(--busy)}b.y{color:#8c867d}
 </style>
@@ -61,33 +68,37 @@ b.g{color:var(--ok)}b.r{color:var(--busy)}b.y{color:#8c867d}
 <div class="card">
   <h2><span class="n">2</span>點選單的「預約時間表」</h2>
   <p>回到聊天室，點畫面下方選單裡的<b>「預約時間表」</b>，就會打開預約頁面。</p>
-  <div class="menu"><div>…</div><div class="hl">預約時間表</div><div>…</div></div>
-  <p class="hint">如果選單是收起來的，點聊天室左下角的「選單」圖示就會展開。</p>
+  <p style="margin:10px 0 0;text-align:center;color:#e0442f;font-weight:700">👇 點紅框圈起來的這一格</p>
+  <div class="menuimg"><img src="guide-img/richmenu.jpg" alt="LINE 聊天室下方的選單"><div class="box"></div></div>
+  <p class="hint">選單在聊天室畫面的最下方，一共 6 格，請點左上角<b>綠色的「預約時間表」</b>。如果沒看到選單，點聊天室左下角的「選單」就會展開。</p>
 </div>
 
 <div class="card">
-  <h2><span class="n">3</span>選日期、時數、時間</h2>
-  <p>頁面上由上往下，一步一步點選：</p>
+  <h2><span class="n">3</span>選日期、時間</h2>
+  <p>打開頁面後，由上往下，一步一步點選：</p>
+  <figure><img src="guide-img/step3-a.jpg" alt="預約頁面：選擇日期、預約多久、選擇開始時間"><figcaption>預約頁面的樣子</figcaption></figure>
   <ul>
-    <li><b>① 選擇日期</b>：日期下方寫「可約」代表還有空位，寫「額滿」就是約滿了。</li>
-    <li><b>② 選擇時數</b>：每次至少 60 分鐘，需要更久可以選 90、120 分鐘。</li>
-    <li><b>③ 選擇時間</b>：點一個綠色的時段，顏色代表狀態：</li>
+    <li><b>① 選擇日期</b>：日期下方寫「可約」代表還有空位，寫「額滿」就是約滿了。日期可以左右滑動，看更後面的日子。</li>
+    <li><b>② 預約多久</b>：每次至少 1 小時，需要更久可以選 1.5 小時或 2 小時。</li>
+    <li><b>③ 選擇開始時間</b>：點一個<b>綠色</b>的時段。顏色的意思是：</li>
   </ul>
-  <div class="slots"><span class="s-ok">14:00</span><span class="s-ok">14:30</span><span class="s-busy">15:00</span><span class="s-no">18:00</span></div>
   <div class="legend"><span><i style="background:var(--ok)"></i><b class="g">綠色</b>可以預約</span><span><i style="background:var(--busy)"></i><b class="r">紅色</b>已被預約</span><span><i style="background:var(--no)"></i><b class="y">灰色</b>未開放</span></div>
-  <p class="hint">只能點綠色的時段。紅色和灰色點不了。</p>
+  <p class="hint">只能點綠色的時段，紅色和灰色點不了。</p>
 </div>
 
 <div class="card">
-  <h2><span class="n">4</span>確認姓名，按「送出預約」</h2>
-  <p>檢查一下姓名，有想讓諮商師先知道的事可以寫在備註（也可以不寫），然後按<b>「送出預約」</b>。</p>
-  <p>看到「<b>預約完成</b>」就成功了，LINE 聊天室也會留下這筆預約的紀錄。</p>
+  <h2><span class="n">4</span>填寫資料，按「送出預約」</h2>
+  <p>點了綠色時段後，往下就是<b>④ 填寫資料</b>。檢查一下姓名，有想讓諮商師先知道的事可以寫在備註（也可以不寫），畫面最下方會顯示您選的時間，確認沒問題，按<b>「送出預約」</b>。</p>
+  <figure><img src="guide-img/step3-b.jpg" alt="選好時段後，填寫資料並按送出預約"><figcaption>選好時段（深綠色）→ 確認姓名 → 送出預約</figcaption></figure>
+  <p>看到「<b>預約完成</b>」就成功了：</p>
+  <figure><img src="guide-img/step4-done.jpg" alt="預約完成畫面"></figure>
   <div class="note">🔔 <b>提醒通知</b>：預約前一天，系統會用 LINE 傳訊息提醒您時間與地點，不用擔心忘記。</div>
 </div>
 
 <div class="card">
   <h2><span class="n">5</span>要改時間或取消？</h2>
-  <p>打開預約頁面，點上方的<b>「我的預約」</b>，找到那一筆，就可以按「改期」或「取消」。</p>
+  <p>打開預約頁面，點上方的<b>「我的預約」</b>，找到那一筆，就可以按「改期」或「取消預約」。</p>
+  <figure><img src="guide-img/step5-mine.jpg" alt="我的預約頁面：改期與取消預約按鈕"></figure>
   <div class="warn">⚠️ <b>改期、取消，最晚要在預約的前一天完成。</b><br>預約當天無法改期或取消，只能按「請假」並填寫原因。當天才請假或改期，可能會另外酌收費用，詳情請洽諮商室。</div>
 </div>
 
@@ -105,7 +116,7 @@ b.g{color:var(--ok)}b.r{color:var(--busy)}b.y{color:#8c867d}
   <h2>❓ 常見問題</h2>
   <details><summary>我點選單，沒有打開預約頁面？</summary><p>請先確認 LINE 是最新版本，再試一次。還是打不開，請直接傳訊息給我們。</p></details>
   <details><summary>我想約的日期沒有綠色時段？</summary><p>代表那天已經約滿，或還沒開放。可以看看其他日期，或直接傳訊息詢問。</p></details>
-  <details><summary>預約的時間要更久，怎麼辦？</summary><p>在「② 選擇時數」選 90 或 120 分鐘，再選時間。</p></details>
+  <details><summary>預約的時間要更久，怎麼辦？</summary><p>在「② 預約多久」選 1.5 小時或 2 小時，再選開始時間。</p></details>
   <details><summary>不方便使用 LINE 預約怎麼辦？</summary><p>也可以直接來電 02-2365-1224，或在聊天室傳訊息，由櫃台幫您預約。</p></details>
 </div>
 
