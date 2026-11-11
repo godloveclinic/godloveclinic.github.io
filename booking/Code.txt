@@ -1,0 +1,1037 @@
+/**
+ * 主愛心理諮商室 LINE 預約系統（正式版）— Google Apps Script 後端
+ * ------------------------------------------------------------------
+ * 放在診所 Google 帳號的試算表裡：「擴充功能 → Apps Script」。
+ * 試算表選單「預約系統」：初始化、設定 LINE 金鑰、產生綁定碼、手動發提醒。
+ */
+
+const TZ = 'Asia/Taipei';
+const ACTIVE = ['待確認', '已確認'];
+const SHOWN = ['待確認', '已確認', '當日請假', '已完成', '未到'];
+const STATUS = ['待確認', '已確認', '已取消', '已婉拒', '當日請假', '已完成', '未到'];
+const WD = ['日', '一', '二', '三', '四', '五', '六'];
+const SECTIONS = [{ n: '上午', h: [10, 11, 12] }, { n: '下午', h: [14, 15, 16] }, { n: '晚上', h: [18, 19, 20] }];
+
+/* ---------- 試算表結構 ---------- */
+const T = {
+  SET: { name: '設定', cols: [['k', '項目'], ['v', '值'], ['memo', '說明']] },
+  BIZ: { name: '營業時段', cols: [['wd', '星期'], ['hours', '整點時段'], ['memo', '說明']] },
+  OPEN: { name: '開放時段', cols: [['date', '日期'], ['hours', '開放的整點']] },
+  HOLD: { name: '保留時段', cols: [['bid', '編號'], ['date', '日期'], ['time', '開始'], ['dur', '分鐘'], ['why', '原因']] },
+  BOOK: {
+    name: '預約', cols: [['id', '編號'], ['created', '建立時間'], ['date', '日期'], ['time', '開始'], ['dur', '分鐘'], ['name', '姓名'],
+      ['phone', '電話'], ['note', '備註'], ['status', '狀態'], ['src', '來源'], ['uid', 'LINE_ID'], ['reminded', '已提醒'], ['key', '確認碼'],
+      ['leaveReason', '請假原因'], ['fee', '收費決定'], ['extra', '加收'], ['history', '改期紀錄'], ['offer', '改時間選項'], ['paid', '諮商師已領'], ['updated', '最後更新'], ['price', '收費']]
+  },
+  CLIENT: { name: '個案', cols: [['uid', 'LINE_ID'], ['name', '姓名'], ['owe', '待加收'], ['first', '首次預約'], ['last', '最後更新'], ['price', '收費']] },
+  STAFF: { name: '人員', cols: [['uid', 'LINE_ID'], ['name', '姓名'], ['role', '身分'], ['until', '有效至'], ['bound', '綁定時間']] },
+  LOG: { name: '系統紀錄', cols: [['t', '時間'], ['type', '類型'], ['msg', '內容']] }
+};
+
+/* ======================== 選單與初始化 ======================== */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('預約系統')
+    .addItem('① 初始化（第一次使用）', 'setup')
+    .addItem('② 設定 LINE 金鑰', 'setKeys')
+    .addItem('③ 產生「諮商師」綁定碼', 'bindCodeCounselor')
+    .addItem('④ 產生「診所」綁定碼', 'bindCodeClinic')
+    .addSeparator()
+    .addItem('立即發送預約提醒', 'remindNow')
+    .addItem('傳測試訊息給諮商師與診所', 'testNotify')
+    .addToUi();
+}
+
+function setup() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  setProp_('SHEET_ID', ss.getId());
+  ss.setSpreadsheetTimeZone(TZ);
+  Object.keys(T).forEach(function (k) { makeSheet_(ss, T[k]); });
+
+  fillIfEmpty_(T.SET, [
+    ['諮商室名稱', '主愛心理諮商室', '顯示在預約頁與通知'],
+    ['諮商師稱呼', '諮商師', '例如：劉諮商師'],
+    ['地址', '臺北市大安區羅斯福路三段269巷39號1樓', '寫在確認與提醒訊息'],
+    ['電話', '02-2365-1224', '寫在提醒訊息'],
+    ['開放預約天數', 28, '從今天起算幾天內可以預約'],
+    ['個案最長可約(分鐘)', 120, '60、90、120…；每次至少 60 分鐘'],
+    ['每人最多未來預約數', 1, '個案同時間只能有幾筆未來預約，避免霸佔時段（櫃台電話預約不受限）'],
+    ['取消後保留紀錄', '否', '否＝預約被取消後，直接從清冊移除（異動紀錄仍會留一行）；是＝清冊保留一列「已取消」'],
+    ['可預約當天', '否', '否＝只能約明天以後'],
+    ['需要諮商師確認', '否', '是＝個案送出後要諮商師按確認才成立'],
+    ['未設定的日期預設開放', '是', '是＝諮商師沒動過的日子，營業時段全部開放'],
+    ['當日請假加收金額', 300, ''],
+    ['每日行程摘要時間(點)', 20, '幾點把明日行程傳給諮商師（「每日行程摘要」設為「是」才會傳）'],
+    ['每日行程摘要', '否', '是＝每晚把明日行程傳給諮商師（會用到 LINE 訊息額度）'],
+    ['收費類別', '健保600, 健保1200, 自費1600', '預約表上的收費選項，用逗號分開（個案看不到）']
+  ]);
+  fillIfEmpty_(T.BIZ, [
+    ['一', '10,11,12,14,15,16', '上午＋下午'], ['二', '14,15,16,18,19,20', '下午＋晚上'],
+    ['三', '10,11,12,14,15,16', '上午＋下午'], ['四', '14,15,16,18,19,20', '下午＋晚上'],
+    ['五', '10,11,12,14,15,16', '上午＋下午']
+  ]);
+  const b = ss.getSheetByName(T.BOOK.name);
+  b.getRange(2, colIdx_(T.BOOK, 'status') + 1, 3000, 1)
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATUS, true).build());
+
+  ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('hourlyJob').timeBased().everyHours(1).create();
+
+  ['工作表1', 'Sheet1'].forEach(function (n) { const s = ss.getSheetByName(n); if (s && s.getLastRow() === 0) ss.deleteSheet(s); });
+  SpreadsheetApp.getUi().alert('初始化完成！\n\n「設定」「營業時段」可以依需要修改。\n下一步：選單「② 設定 LINE 金鑰」。');
+}
+
+function makeSheet_(ss, def) {
+  let sh = ss.getSheetByName(def.name);
+  if (!sh) sh = ss.insertSheet(def.name);
+  sh.getRange(1, 1, 3000, def.cols.length).setNumberFormat('@');
+  if (sh.getLastRow() === 0) {
+    sh.getRange(1, 1, 1, def.cols.length).setValues([def.cols.map(function (c) { return c[1]; })])
+      .setFontWeight('bold').setBackground('#fff35c');
+    sh.setFrozenRows(1);
+  }
+}
+
+function fillIfEmpty_(def, rows) {
+  const sh = ss_().getSheetByName(def.name);
+  if (sh.getLastRow() > 1) return;
+  sh.getRange(2, 1, rows.length, rows[0].length).setValues(rows.map(function (r) { return r.map(String); }));
+  forget_(def);
+}
+
+function setKeys() {
+  const ui = SpreadsheetApp.getUi();
+  const a = ui.prompt('設定 LINE 金鑰 (1/2)', '貼上 Messaging API 的「Channel access token」（留空＝不變）', ui.ButtonSet.OK_CANCEL);
+  if (a.getSelectedButton() !== ui.Button.OK) return;
+  if (a.getResponseText().trim()) setProp_('LINE_TOKEN', a.getResponseText().trim());
+  const b = ui.prompt('設定 LINE 金鑰 (2/2)', '貼上 LINE Login channel 的「Channel ID」（一串數字，留空＝不變）', ui.ButtonSet.OK_CANCEL);
+  if (b.getSelectedButton() !== ui.Button.OK) return;
+  if (b.getResponseText().trim()) setProp_('LIFF_CHANNEL_ID', b.getResponseText().trim());
+  ui.alert('已儲存。\nChannel access token：' + (prop_('LINE_TOKEN') ? '已設定' : '未設定') + '\nChannel ID：' + (prop_('LIFF_CHANNEL_ID') || '未設定'));
+}
+
+function bindCodeCounselor() { makeBindCode_('諮商師'); }
+function bindCodeClinic() { makeBindCode_('診所'); }
+function makeBindCode_(role) {
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  setProp_('BIND_' + code, role);
+  SpreadsheetApp.getUi().alert('「' + role + '」綁定碼：' + code +
+    '\n\n請用要綁定的人自己的 LINE，先加入官方帳號，再傳：\n\n綁定 ' + code +
+    '\n\n綁定成功後這組碼就失效。要解除，傳「解除綁定」。');
+}
+
+function remindNow() {
+  const n = clientReminders_();
+  SpreadsheetApp.getActiveSpreadsheet().toast('剛才送出 LINE 提醒 ' + n + ' 則（24 小時內、還沒提醒過的預約）', '預約系統', 8);
+}
+
+function testNotify() {
+  const c = staffIds_('諮商師'), k = staffIds_('診所');
+  c.concat(k).forEach(function (u) { push_(u, [txt_('✅ 預約系統測試訊息：通知設定正常。')]); });
+  SpreadsheetApp.getUi().alert('已傳給 諮商師 ' + c.length + ' 位、診所 ' + k.length + ' 位。');
+}
+
+/* ======================== Web 進入點 ======================== */
+
+function doGet() { return ContentService.createTextOutput('主愛心理諮商室預約系統運作中'); }
+
+function doPost(e) {
+  let body = {};
+  try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { body = {}; }
+  if (body.events) {
+    try { handleLine_(body.events); } catch (err) { log_('錯誤', 'Webhook：' + (err.stack || err)); }
+    return out_({ ok: true });
+  }
+  let res;
+  try {
+    res = handleApi_(body);
+  } catch (err) {
+    if (!err.userFacing) log_('錯誤', 'API ' + body.action + '：' + (err.stack || err));
+    res = { ok: false, error: err.userFacing ? err.message : '系統忙碌中，請稍後再試，或直接傳訊息給我們' };
+  }
+  return out_(res);
+}
+
+function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+function uerr_(m) { const e = new Error(m); e.userFacing = true; return e; }
+
+/* ======================== API ======================== */
+
+const STAFF_ACTIONS = ['setOpen', 'copyWeeks', 'setPrice', 'paid', 'offer', 'release', 'deskAdd', 'setStatus', 'delBook'];
+
+function handleApi_(b) {
+  USE_CACHE = b.action === 'init';   // 只有「讀取畫面」用快取；預約、修改一律讀最新的試算表
+  const uid = verifyIdToken_(b.idToken);
+  prefetch_([T.SET, T.BIZ, T.OPEN, T.HOLD, T.BOOK, T.STAFF, T.CLIENT]);
+  const role = roleOf_(uid);
+  if (b.action === 'init') return init_(uid, role, b);
+  if (STAFF_ACTIONS.indexOf(b.action) >= 0) {
+    if (role !== '諮商師' && role !== '診所') throw uerr_('只有諮商師與診所人員可以使用這個功能');
+    return withLock_(function () { return withState_(STAFF[b.action](uid, role, b), uid, role, b); });
+  }
+  if (['book', 'cancel', 'reschedule', 'leave'].indexOf(b.action) >= 0) {
+    return withLock_(function () { return withState_(CLIENT_API[b.action](uid, b), uid, role, b); });
+  }
+  throw uerr_('未知的操作');
+}
+
+// 操作完成後，順便把最新畫面資料一起回傳，前端不用再多連一次線（少等好幾秒）
+function withState_(res, uid, role, b) {
+  try { USE_CACHE = false; MEMO = {}; res.state = init_(uid, role, b); } catch (e) { }
+  return res;
+}
+
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { return fn(); } finally { lock.releaseLock(); }
+}
+
+function verifyIdToken_(tok) {
+  if (!tok) throw uerr_('請從 LINE 開啟這個頁面');
+  const cache = CacheService.getScriptCache();
+  const key = 't' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, tok)).slice(0, 40);
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const cid = prop_('LIFF_CHANNEL_ID');
+  if (!cid) throw uerr_('系統尚未設定完成（缺 LINE Login Channel ID）');
+  const r = UrlFetchApp.fetch('https://api.line.me/oauth2/v2.1/verify', { method: 'post', payload: { id_token: tok, client_id: cid }, muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) throw uerr_('LINE 登入已過期，請關閉頁面後重新開啟');
+  const sub = JSON.parse(r.getContentText()).sub;
+  cache.put(key, sub, 600);
+  return sub;
+}
+
+function init_(uid, role, b) {
+  if (role === '諮商師' || role === '診所') { try { migrateV6_(); migrateV7_(); } catch (e) { } }
+  const S = settings_();
+  const t = today_();
+  const base = {
+    ok: true, role: role || '個案', now: Date.now(), today: t,
+    set: { name: S.name, who: S.who, days: S.days, maxN: S.maxN, maxDur: S.maxDur, sameDay: S.sameDay, needConfirm: S.needConfirm, fee: S.fee },
+    biz: bizMap_(), open: openMap_(S, addDays_(t, -7), addDays_(t, S.days + 7))
+  };
+  const books = rows_(T.BOOK);
+  const holds = rows_(T.HOLD);
+  if (role === '諮商師' || role === '診所' || role === '代班') {
+    base.set.prices = S.prices;
+    const from = addDays_(t, -45);
+    base.books = books.filter(function (x) { return x.date >= from; }).map(pubBook_);
+    base.holds = holds;
+    const staffIds = rows_(T.STAFF).map(function (x) { return x.uid; });
+    base.clients = rows_(T.CLIENT).filter(function (c) { return c.uid && staffIds.indexOf(c.uid) < 0; }).map(function (c) { return { uid: c.uid, name: c.name, booked: !!c.first, price: c.price }; });
+    return base;
+  }
+  // 個案：只給「哪些時間被佔用」，不給其他人的姓名
+  base.busy = books.filter(function (x) { return ACTIVE.indexOf(x.status) >= 0 && x.uid !== uid && x.date >= t; })
+    .map(function (x) { return { date: x.date, time: x.time, dur: +x.dur }; })
+    .concat(holds.filter(function (h) { return h.date >= t; }).map(function (h) { return { date: h.date, time: h.time, dur: +h.dur }; }));
+  base.mine = books.filter(function (x) { return x.uid === uid && (ACTIVE.indexOf(x.status) >= 0 || x.status === '當日請假') && x.date >= t; })
+    .sort(byDT_).map(function (x) { const o = pubBook_(x); delete o.price; return o; });   // 收費不給個案看
+  const c = findClient_(uid);
+  base.me = { name: c ? c.name : String(b.displayName || '').slice(0, 30) };
+  return base;
+}
+
+function pubBook_(x) {
+  return {
+    id: x.id, date: x.date, time: x.time, dur: +x.dur, name: x.name, phone: x.phone, note: x.note, status: x.status, src: x.src,
+    uid: x.uid ? 'Y' : '', leaveReason: x.leaveReason, fee: x.fee, extra: x.extra, history: x.history,
+    offer: x.offer ? 'Y' : '', paid: x.paid === '✔', updated: x.updated || x.created, price: x.price || ''
+  };
+}
+
+/* ---------- 個案 ---------- */
+const CLIENT_API = {
+  book: function (uid, b) {
+    const S = settings_();
+    const name = String(b.name || '').trim().slice(0, 30);
+    const note = String(b.note || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+    const date = fmtDate_(b.date), start = Number(b.start), dur = Number(b.dur);
+    if (!name) throw uerr_('請填寫姓名');
+    if (durOptions_(S).indexOf(dur) < 0) throw uerr_('請選擇預約時數');
+    if (slotState_(S, date, start, dur, null) !== 'ok') throw uerr_('這個時段剛剛被預約走了，請選擇其他時段');
+    const n = rows_(T.BOOK).filter(function (x) { return x.uid === uid && ACTIVE.indexOf(x.status) >= 0 && x.date >= today_(); }).length;
+    if (n >= S.maxN) throw uerr_('您目前已有一筆預約，每人同時只能預約 ' + S.maxN + ' 次。如要換時間，請到「我的預約」按「改期」；需要更多時段請直接傳訊息給我們');
+    const bk = {
+      id: newId_(), created: nowStr_(), date: date, time: m2t_(start), dur: dur, name: name, phone: '', note: note,
+      status: S.needConfirm ? '待確認' : '已確認', src: 'LINE', uid: uid, key: randKey_(), updated: nowStr_(),
+      price: (findClient_(uid) || {}).price || ''
+    };
+    applyOwe_(bk, uid);
+    addRow_(T.BOOK, bk);
+    upsertClient_(uid, { name: name, first: (findClient_(uid) || {}).first || nowStr_() });
+    setLast_(uid, bk.id);
+    log_('預約', name + ' ' + whenTxt_(bk));
+    notifyNewBooking_(bk, S);
+    return { ok: true, id: bk.id, status: bk.status };
+  },
+  cancel: function (uid, b) {
+    const bk = mustOwn_(uid, b.id);
+    if (!canChange_(bk)) throw uerr_('預約當天無法取消，請使用「請假」並填寫原因');
+    bk.status = '已取消'; bk.note = join_(bk.note, '個案於 LINE 自行取消'); touch_(bk);
+    saveRow_(T.BOOK, bk); setLast_(uid, bk.id);
+    log_('取消', bk.name + ' ' + whenTxt_(bk));
+    pushRole_('諮商師', [txt_(staffTxt_(bk, '❌ 個案取消預約'))]);
+    dropCancelled_(bk);
+    return { ok: true };
+  },
+  reschedule: function (uid, b) {
+    const S = settings_();
+    const bk = mustOwn_(uid, b.id);
+    if (!canChange_(bk)) throw uerr_('預約當天無法改期，請使用「請假」並填寫原因');
+    const date = fmtDate_(b.date), start = Number(b.start), dur = Number(b.dur);
+    if (durOptions_(S).indexOf(dur) < 0) throw uerr_('請選擇預約時數');
+    if (slotState_(S, date, start, dur, bk.id) !== 'ok') throw uerr_('這個時段剛剛被預約走了，請選擇其他時段');
+    const old = whenTxt_(bk);
+    bk.date = date; bk.time = m2t_(start); bk.dur = dur; bk.reminded = '';
+    bk.history = join_(bk.history, '原 ' + old); touch_(bk);
+    saveRow_(T.BOOK, bk); setLast_(uid, bk.id);
+    log_('改期', bk.name + '：' + old + ' → ' + whenTxt_(bk));
+    pushRole_('諮商師', [txt_('🔄 個案改期\n' + bk.name + '\n原：' + old + '\n新：' + whenTxt_(bk) + '（' + durTxt_(bk.dur) + '）')]);
+    return { ok: true, old: old };
+  },
+  leave: function (uid, b) {
+    const bk = mustOwn_(uid, b.id);
+    if (!canLeave_(bk)) throw uerr_('只有預約當天可以請假');
+    const reason = String(b.reason || '').trim().slice(0, 100);
+    if (!reason) throw uerr_('請填寫請假原因');
+    markLeave_(bk, reason, '個案');
+    setLast_(uid, bk.id);
+    return { ok: true };
+  }
+};
+
+function mustOwn_(uid, id) {
+  const bk = findBooking_(id);
+  if (!bk || bk.uid !== uid || ACTIVE.indexOf(bk.status) < 0) throw uerr_('找不到這筆預約');
+  return bk;
+}
+
+function notifyNewBooking_(bk, S) {
+  if (bk.status === '待確認') {
+    pushRole_('諮商師', [confirmTpl_(staffTxt_(bk, '📅 新預約（待確認）'), '確認', 'a=ok&id=' + bk.id + '&k=' + bk.key, '婉拒', 'a=no&id=' + bk.id + '&k=' + bk.key)]);
+  } else {
+    pushRole_('諮商師', [txt_(staffTxt_(bk, '📅 新預約'))]);
+  }
+}
+
+function applyOwe_(bk, uid) {
+  const c = uid && findClient_(uid);
+  if (!c || !c.owe) return;
+  const S = settings_();
+  bk.extra = '加收 ' + S.fee + '（' + c.owe + ' 當日請假）';
+  pushRole_('診所', [txt_('📌 需加收費用\n' + bk.name + '　' + whenTxt_(bk) + '\n這次預約需加收 ' + S.fee + ' 元（上次 ' + c.owe + ' 當日請假）')]);
+  upsertClient_(uid, { owe: '' });
+}
+
+function markLeave_(bk, reason, by) {
+  const S = settings_();
+  bk.status = '當日請假'; bk.leaveReason = reason; bk.fee = '待諮商師決定'; touch_(bk);
+  saveRow_(T.BOOK, bk);
+  log_('請假', bk.name + ' ' + whenTxt_(bk) + '（' + by + '）：' + reason);
+  pushRole_('諮商師', [confirmTpl_('🙋 當日請假\n' + bk.name + '\n' + whenTxt_(bk) + '\n原因：' + reason + '\n\n下次預約是否酌收 ' + S.fee + ' 元？（結果只通知診所）',
+    '酌收 ' + S.fee, 'a=fee&v=1&id=' + bk.id, '不收費', 'a=fee&v=0&id=' + bk.id)]);
+  pushRole_('診所', [txt_('🙋 當日請假（' + by + '）\n' + bk.name + '\n' + whenTxt_(bk) + '\n原因：' + reason + '\n等待諮商師決定是否酌收 ' + S.fee + ' 元')]);
+}
+
+/* ---------- 諮商師／診所 ---------- */
+const STAFF = {
+  setOpen: function (uid, role, b) {
+    const date = fmtDate_(b.date);
+    const biz = bizHours_(date);
+    const hours = (b.hours || []).map(Number).filter(function (h) { return biz.indexOf(h) >= 0; });
+    const removed = openHours_(settings_(), date).filter(function (h) { return hours.indexOf(h) < 0; });
+    removed.forEach(function (h) {
+      if (bookingsInHour_(date, h).length) throw uerr_(h + ':00 這個時段已經有人預約，不能關閉');
+    });
+    setOpen_(date, hours);
+    return { ok: true };
+  },
+  copyWeeks: function (uid, role, b) {
+    const S = settings_(), date = fmtDate_(b.date), hours = openHours_(S, date);
+    for (let k = 1; k <= 4; k++) {
+      const d = addDays_(date, 7 * k);
+      const keep = bizHours_(d).filter(function (h) { return bookingsInHour_(d, h).length; });
+      setOpen_(d, uniq_(hours.concat(keep)).filter(function (h) { return bizHours_(d).indexOf(h) >= 0; }).sort(numSort_));
+    }
+    log_('開放時段', '把 ' + md_(date) + ' 套用到之後 4 週');
+    return { ok: true };
+  },
+  setPrice: function (uid, role, b) {
+    const bk = findBooking_(b.id); if (!bk) throw uerr_('找不到這筆預約');
+    const v = String(b.value || '');
+    if (v && settings_().prices.indexOf(v) < 0) throw uerr_('沒有這個收費類別');
+    let n = 1;
+    bk.price = v; touch_(bk); saveRow_(T.BOOK, bk);
+    if (b.scope === 'always') {
+      // 這位個案之後的預約也一起改，並記成他的預設收費
+      const same = bk.uid ? function (x) { return x.uid === bk.uid; } : function (x) { return !x.uid && x.name === bk.name && x.phone === bk.phone; };
+      rows_(T.BOOK).filter(function (x) { return x.id !== bk.id && same(x) && x.date >= today_() && ACTIVE.indexOf(x.status) >= 0 && x.price !== v; })
+        .forEach(function (x) { x.price = v; touch_(x); saveRow_(T.BOOK, x); n++; });
+      if (bk.uid) upsertClient_(bk.uid, { price: v });
+    }
+    log_('收費', bk.name + ' ' + md_(bk.date) + ' → ' + (v || '未設定') + (b.scope === 'always' ? '（之後都用這個）' : '（只改這次）') + '（' + role + '）');
+    return { ok: true, n: n };
+  },
+  paid: function (uid, role, b) {
+    const bk = findBooking_(b.id); if (!bk) throw uerr_('找不到這筆預約');
+    bk.paid = b.value ? '✔' : ''; touch_(bk); saveRow_(T.BOOK, bk);
+    return { ok: true };
+  },
+  offer: function (uid, role, b) {
+    const bk = findBooking_(b.id);
+    if (!bk || ACTIVE.indexOf(bk.status) < 0) throw uerr_('找不到這筆預約');
+    let opts = (b.opts || []).slice(0, 3).map(function (o) { return { date: fmtDate_(o.date), time: fmtTime_(o.time) }; });
+    if (!opts.length) throw uerr_('請至少選一個新時段');
+    opts.forEach(function (o) { const p = optProblem_(bk, o); if (p) throw uerr_(md_(o.date) + ' ' + o.time + '：' + p); });
+    opts.sort(function (x, y) { return (x.date + x.time) < (y.date + y.time) ? -1 : 1; });
+    const reason = String(b.reason || '').trim().slice(0, 40);
+    const n = randKey_().slice(0, 6);
+    bk.offer = JSON.stringify({ opts: opts, reason: reason, n: n }); touch_(bk); saveRow_(T.BOOK, bk);
+    const S = settings_();
+    pushRole_('診所', [txt_('📝 諮商師請個案改時間\n' + bk.name + '\n原：' + whenTxt_(bk) + (reason ? '\n原因：' + reason : '') +
+      '\n提供：\n' + opts.map(function (o) { return '・' + optTxt_(o, bk.dur); }).join('\n'))]);
+    log_('改時間', '請 ' + bk.name + ' 調整 ' + whenTxt_(bk));
+    if (!bk.uid) return { ok: true, viaLine: false };
+    const actions = opts.map(function (o, k) {
+      return { type: 'postback', label: optTxt_(o, bk.dur).slice(0, 20), data: 'a=off&k=' + k + '&id=' + bk.id + '&n=' + n, displayText: '我選 ' + optTxt_(o, bk.dur) };
+    });
+    actions.push({ type: 'postback', label: '都不方便，我再另外約', data: 'a=off&k=-1&id=' + bk.id + '&n=' + n, displayText: '都不方便，我再另外約時間' });
+    push_(bk.uid, [
+      txt_('⏰ 時間調整通知\n\n' + bk.name + ' 您好，' + S.who + (reason ? '因' + reason + '，' : '因臨時有事，') + '需要調整您 ' + whenTxt_(bk) +
+        ' 的時間，造成不便很抱歉 🙏\n\n請在下方選擇您方便的新時間。'),
+      { type: 'template', altText: '請選擇新的預約時間', template: { type: 'buttons', text: '請選擇新時間：', actions: actions } }
+    ]);
+    return { ok: true, viaLine: true };
+  },
+  release: function (uid, role, b) {
+    deleteHold_(b.bid);
+    return { ok: true };
+  },
+  deskAdd: function (uid, role, b) {
+    const S = settings_();
+    const date = fmtDate_(b.date), start = Number(b.start), dur = Number(b.dur);
+    const name = String(b.name || '').trim().slice(0, 30);
+    if (!date || !name || !(dur >= 60)) throw uerr_('日期、時間、姓名都要填');
+    let clash = false, closed = false;
+    for (let m = start; m < start + dur; m += 30) { if (busyAt_(date, m, null)) clash = true; if (!isOpenCell_(S, date, m)) closed = true; }
+    const bk = {
+      id: newId_(), created: nowStr_(), date: date, time: m2t_(start), dur: dur, name: name, phone: String(b.phone || '').replace(/[^\d]/g, ''),
+      note: String(b.note || '').trim().slice(0, 100), status: '已確認', src: role === '諮商師' ? '諮商師' : '櫃檯', uid: b.uid || '', key: randKey_(), updated: nowStr_(),
+      price: S.prices.indexOf(String(b.price || '')) >= 0 ? String(b.price) : ((b.uid && (findClient_(b.uid) || {}).price) || '')
+    };
+    if (bk.uid) applyOwe_(bk, bk.uid);
+    if (bk.uid && bk.price && findClient_(bk.uid)) upsertClient_(bk.uid, { price: bk.price });
+    addRow_(T.BOOK, bk);
+    log_('櫃檯', '新增 ' + name + ' ' + whenTxt_(bk) + (clash ? '（時段重疊）' : '') + (closed ? '（未開放時段）' : ''));
+    if (role !== '諮商師') pushRole_('諮商師', [txt_(staffTxt_(bk, '📝 櫃檯新增預約'))]);
+    const sent = notifyClientStatus_(bk);
+    return { ok: true, clash: clash, closed: closed, viaLine: sent };
+  },
+  setStatus: function (uid, role, b) {
+    const bk = findBooking_(b.id); if (!bk) throw uerr_('找不到這筆預約');
+    const st = String(b.status);
+    if (STATUS.indexOf(st) < 0 || st === bk.status) return { ok: true };
+    if (st === '當日請假') { markLeave_(bk, String(b.reason || '櫃檯登記'), role); return { ok: true }; }
+    bk.status = st; touch_(bk); saveRow_(T.BOOK, bk);
+    log_('狀態', bk.name + ' ' + md_(bk.date) + ' 改為 ' + st + '（' + role + '）');
+    let sent = false;
+    if (['已確認', '已取消', '已婉拒'].indexOf(st) >= 0) sent = notifyClientStatus_(bk);
+    if (st === '已取消') dropCancelled_(bk);
+    return { ok: true, viaLine: sent };
+  },
+  delBook: function (uid, role, b) {
+    const bk = findBooking_(b.id); if (!bk) throw uerr_('找不到這筆預約（可能已被刪除）');
+    removeBooking_(bk);
+    log_('刪除', bk.name + ' ' + md_(bk.date) + ' ' + bk.time + ' 的預約已刪除（' + role + '）');
+    return { ok: true };
+  }
+};
+
+/* ======================== LINE Webhook ======================== */
+
+function handleLine_(events) {
+  events.forEach(function (ev) {
+    const uid = ev.source && ev.source.userId;
+    if (!uid) return;
+    try { noteFriend_(uid); } catch (e) { }
+    if (ev.type === 'message' && ev.message && ev.message.type === 'text') onText_(ev, uid, String(ev.message.text).trim());
+    else if (ev.type === 'postback') withLock_(function () { onPostback_(ev, uid, ev.postback.data || ''); });
+  });
+}
+
+// 加好友或傳過訊息的人，自動記到「個案」分頁（櫃台電話預約時可以直接選）
+function noteFriend_(uid) {
+  const cache = CacheService.getScriptCache(), key = 'SEEN_' + uid;
+  if (cache.get(key)) return;
+  cache.put(key, '1', 21600);
+  if (roleOf_(uid) || findClient_(uid)) return;
+  const name = profileName_(uid);
+  withLock_(function () {
+    MEMO = {};
+    if (findClient_(uid)) return;
+    addRow_(T.CLIENT, { uid: uid, name: name, owe: '', first: '', last: nowStr_() });
+  });
+}
+
+function onText_(ev, uid, t) {
+  const S = settings_();
+  let m;
+  if ((m = t.match(/^綁定\s*(\d{6})$/))) {
+    const role = prop_('BIND_' + m[1]);
+    if (!role) { reply_(ev.replyToken, [txt_('綁定碼不正確或已使用過，請重新產生。')]); return; }
+    delProp_('BIND_' + m[1]);
+    upsertStaff_(uid, profileName_(uid), role, '');
+    reply_(ev.replyToken, [txt_('✅ 已綁定為「' + role + '」\n之後按選單的「預約時間表」就會看到預約表與管理功能。')]);
+    log_('綁定', profileName_(uid) + ' → ' + role);
+    return;
+  }
+  if (t === '解除綁定') {
+    if (removeStaff_(uid)) reply_(ev.replyToken, [txt_('已解除綁定。')]);
+    return;
+  }
+  if (t === '我是代班') {
+    const r = roleOf_(uid);
+    if (r) { reply_(ev.replyToken, [txt_('您目前已經可以查看預約表了，請按選單的「預約時間表」。')]); return; }
+    const lim = CacheService.getScriptCache();
+    if (lim.get('SUBRL_' + uid)) { reply_(ev.replyToken, [txt_('已經送出申請了，請稍等諮商師或診所同意（1 小時內不用重複申請）。')]); return; }
+    lim.put('SUBRL_' + uid, '1', 3600);
+    const rid = randKey_().slice(0, 8), name = profileName_(uid);
+    CacheService.getScriptCache().put('SUBREQ_' + rid, JSON.stringify({ uid: uid, name: name }), 6 * 3600);
+    ['諮商師', '診所'].forEach(function (role) {
+      pushRole_(role, [confirmTpl_('🧑‍💼 代班申請\n' + name + ' 申請成為代班人員，同意後可以在 LINE 查看預約表（長期有效，要取消時到試算表「人員」分頁刪除該列）。',
+        '同意', 'a=sub&v=1&rid=' + rid, '不同意', 'a=sub&v=0&rid=' + rid)]);
+    });
+    reply_(ev.replyToken, [txt_('已送出代班申請，等諮商師或診所同意後會通知您 🙏')]);
+    return;
+  }
+  // 個案在預約頁操作後，LINE 會自動傳出這些訊息，系統用「免費回覆」回應
+  const last = CacheService.getScriptCache().get('last_' + uid);
+  const lb = last ? findBooking_(last) : null;
+  if (/^【預約】/.test(t)) { if (lb) reply_(ev.replyToken, [txt_(clientTxt_(lb, S))]); return; }
+  if (/^【取消預約】/.test(t)) { if (lb) reply_(ev.replyToken, [txt_('已為您取消 ' + whenTxt_(lb) + ' 的預約。\n期待下次再見到您 🙏')]); return; }
+  if (/^【改期】/.test(t)) { if (lb) reply_(ev.replyToken, [txt_('✅ 已為您改期\n\n新時間：' + whenTxt_(lb) + '\n\n期待與您見面 🙏')]); return; }
+  if (/^【請假】/.test(t)) { reply_(ev.replyToken, [txt_('已收到您的請假，我們會轉告' + S.who + '。\n願您一切平安 🙏')]); return; }
+  if (t === '我的預約') {
+    const mine = rows_(T.BOOK).filter(function (x) { return x.uid === uid && ACTIVE.indexOf(x.status) >= 0 && x.date >= today_(); }).sort(byDT_);
+    reply_(ev.replyToken, [txt_(mine.length ? '您目前的預約：\n' + mine.map(function (x) { return '\n' + whenTxt_(x) + '　' + x.status; }).join('') : '您目前沒有預約。')]);
+    return;
+  }
+  // 其他訊息不處理，保留給真人一對一聊天
+}
+
+function onPostback_(ev, uid, data) {
+  const p = {};
+  data.split('&').forEach(function (kv) { const i = kv.indexOf('='); if (i > 0) p[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); });
+  const role = roleOf_(uid), staff = role === '諮商師' || role === '診所';
+  const S = settings_();
+  const say = function (s) { reply_(ev.replyToken, [txt_(s)]); };
+
+  if (p.a === 'off') {   // 個案選擇諮商師提供的新時間
+    const bk = findBooking_(p.id);
+    let off = null; try { off = bk && bk.offer ? JSON.parse(bk.offer) : null; } catch (e) { off = null; }
+    if (!bk || bk.uid !== uid || ACTIVE.indexOf(bk.status) < 0 || !off || off.n !== p.n) { say('這筆預約已經處理過了，如有問題請直接傳訊息給我們。'); return; }
+    const k = Number(p.k), oldTxt = whenTxt_(bk);
+    if (k < 0) {
+      const bid = holdSlot_(bk);
+      bk.status = '已取消'; bk.offer = ''; bk.note = join_(bk.note, '諮商師請改時間，個案選擇另外再約'); touch_(bk); saveRow_(T.BOOK, bk);
+      say('好的，已為您取消 ' + oldTxt + ' 的預約。\n歡迎再從「預約時間表」另外約時間，謝謝您的體諒 🙏');
+      askRelease_(bid, '🙇 個案選擇「另外再約」\n' + bk.name + '\n原：' + oldTxt + '（已自動取消）');
+      pushRole_('診所', [txt_('🙇 個案選擇另外再約\n' + bk.name + '\n原：' + oldTxt + '（已自動取消，不收費）')]);
+      log_('改時間', bk.name + ' 選擇另外再約');
+      dropCancelled_(bk);
+      return;
+    }
+    const o = off.opts[k];
+    if (!o || optProblem_(bk, o)) { say('抱歉，這個時間剛好已經被安排了，請選其他時間，或直接傳訊息給我們。'); return; }
+    const bid = holdSlot_(bk);
+    bk.date = o.date; bk.time = o.time; bk.reminded = ''; bk.offer = '';
+    bk.history = join_(bk.history, '諮商師調整，原 ' + oldTxt); touch_(bk); saveRow_(T.BOOK, bk);
+    say('✅ 已為您改到新時間\n\n時間：' + whenTxt_(bk) + '\n\n謝謝您的體諒 🙏');
+    askRelease_(bid, '✅ 個案已選新時間\n' + bk.name + '\n原：' + oldTxt + '\n新：' + whenTxt_(bk));
+    pushRole_('診所', [txt_('✅ 個案已選新時間\n' + bk.name + '\n原：' + oldTxt + '\n新：' + whenTxt_(bk))]);
+    log_('改時間', bk.name + '：' + oldTxt + ' → ' + whenTxt_(bk));
+    return;
+  }
+
+  if (!staff) return;   // 以下按鈕只有諮商師／診所可以按
+
+  if (p.a === 'ok' || p.a === 'no') {
+    const bk = findBooking_(p.id);
+    if (!bk || bk.key !== p.k) { say('找不到這筆預約。'); return; }
+    if (bk.status !== '待確認') { say('這筆預約目前是「' + bk.status + '」，不需要再處理。'); return; }
+    bk.status = p.a === 'ok' ? '已確認' : '已婉拒'; touch_(bk); saveRow_(T.BOOK, bk);
+    const sent = notifyClientStatus_(bk);
+    say((p.a === 'ok' ? '✅ 已確認　' : '已婉拒　') + bk.name + '　' + whenTxt_(bk) + (sent ? '' : '\n⚠ 這位個案無法用 LINE 通知，請另外聯絡'));
+    return;
+  }
+  if (p.a === 'fee') {
+    const bk = findBooking_(p.id);
+    if (!bk || bk.fee !== '待諮商師決定') { say('這筆已經決定過了。'); return; }
+    const charge = p.v === '1';
+    bk.fee = charge ? '酌收 ' + S.fee : '不收費'; touch_(bk); saveRow_(T.BOOK, bk);
+    let extra = '';
+    if (charge) {
+      const next = rows_(T.BOOK).filter(function (x) {
+        return x.id !== bk.id && ACTIVE.indexOf(x.status) >= 0 && (bk.uid ? x.uid === bk.uid : x.name === bk.name) && (x.date + x.time) > (bk.date + bk.time);
+      }).sort(byDT_)[0];
+      if (next) { next.extra = '加收 ' + S.fee + '（' + md_(bk.date) + ' 當日請假）'; touch_(next); saveRow_(T.BOOK, next); extra = '已標註在下次預約 ' + whenTxt_(next) + '，到時收取'; }
+      else if (bk.uid) { upsertClient_(bk.uid, { owe: md_(bk.date) }); extra = '他目前沒有下次預約，下次預約時系統會自動標註'; }
+      else extra = '他目前沒有下次預約，請記得下次收取';
+    }
+    pushRole_('診所', [txt_('💰 諮商師決定\n' + bk.name + '　' + whenTxt_(bk) + ' 當日請假\n原因：' + bk.leaveReason + '\n→ ' + (charge ? '下次預約酌收 ' + S.fee + ' 元\n' + extra : '不收費'))]);
+    say('已通知診所：' + bk.fee + '\n（不會通知個案）');
+    log_('收費', bk.name + ' ' + md_(bk.date) + ' 當日請假 → ' + bk.fee);
+    return;
+  }
+  if (p.a === 'rel') {
+    const h = rows_(T.HOLD).filter(function (x) { return x.bid === p.bid; })[0];
+    if (!h) { say('這個時段已經處理過了。'); return; }
+    const when = md_(h.date) + '（' + wdOf_(h.date) + '）' + h.time + '～' + m2t_(toMin_(h.time) + Number(h.dur));
+    if (p.v === '1') { deleteHold_(p.bid); say('已開放 ' + when + '，個案可以預約了。'); log_('開放時段', '開放保留的 ' + when); }
+    else say('好的，' + when + ' 先不開放。\n之後要開放，可到預約時間表的「開放時段」解除保留。');
+    return;
+  }
+  if (p.a === 'sub') {
+    const cache = CacheService.getScriptCache();
+    const raw = cache.get('SUBREQ_' + p.rid);
+    if (!raw) { say('這個代班申請已經處理過或過期了。'); return; }
+    cache.remove('SUBREQ_' + p.rid);
+    const r = JSON.parse(raw);
+    if (p.v === '1') {
+      upsertStaff_(r.uid, r.name, '代班', '');
+      say('已開放 ' + r.name + ' 查看預約表（長期有效）。\n要取消時，到試算表「人員」分頁刪除她那一列即可。');
+      push_(r.uid, [txt_('✅ 已開放您查看預約表\n請按選單的「預約時間表」。')]);
+      log_('代班', r.name + ' 成為代班（' + role + '同意）');
+    } else {
+      say('已婉拒 ' + r.name + ' 的代班申請。');
+      push_(r.uid, [txt_('抱歉，您的代班申請沒有通過，如有疑問請洽診所。')]);
+    }
+  }
+}
+
+function holdSlot_(bk) {
+  const bid = randKey_().slice(0, 8);
+  addRow_(T.HOLD, { bid: bid, date: bk.date, time: bk.time, dur: bk.dur, why: '調整 ' + bk.name + ' 的時間' });
+  return bid;
+}
+
+function askRelease_(bid, text) {
+  pushRole_('諮商師', [confirmTpl_(text + '\n\n原時段目前保留中，要開放給其他個案預約嗎？', '開放這個時段', 'a=rel&v=1&bid=' + bid, '先不開放', 'a=rel&v=0&bid=' + bid)]);
+}
+
+/* ======================== 每小時：提醒、摘要、代班到期 ======================== */
+
+function hourlyJob() {
+  expireSubs_();
+  migrateSettings_();
+  const S = settings_();
+  clientReminders_();
+  if (S.summary && Number(Utilities.formatDate(new Date(), TZ, 'H')) >= S.remindHour) runReminders_(false);
+}
+
+// 舊版設定更新：改名「每日行程摘要時間(點)」，並把每日行程摘要預設關閉（只做一次）
+function migrateSettings_() {
+  migrateV6_(); migrateV7_();
+  if (prop_('MIG_V5')) return;
+  rows_(T.SET).forEach(function (r) {
+    const k = String(r.k).trim();
+    if (k === '提醒發送時間(點)' || k === '每日行程摘要時間(點)') { r.k = '每日行程摘要時間(點)'; r.memo = '幾點把明日行程傳給諮商師（「每日行程摘要」設為「是」才會傳）'; saveRow_(T.SET, r); }
+    if (k === '每日行程摘要') { r.v = '否'; r.memo = '是＝每晚把明日行程傳給諮商師（會用到 LINE 訊息額度）'; saveRow_(T.SET, r); }
+  });
+  setProp_('MIG_V5', '1');
+  MEMO = {};
+}
+
+// 第 6 版：預約、個案加「收費」欄；設定加「收費類別」
+function migrateV7_() {
+  if (prop_('MIG_V7')) return;
+  withLock_(function () {
+    if (prop_('MIG_V7')) return;
+    const r = rows_(T.SET).filter(function (x) { return String(x.k).trim() === '每人最多未來預約數'; })[0];
+    if (r && String(r.v).trim() === '2') { r.v = 1; saveRow_(T.SET, r); }
+    if (!rows_(T.SET).some(function (x) { return String(x.k).trim() === '取消後保留紀錄'; }))
+      addRow_(T.SET, { k: '取消後保留紀錄', v: '否', memo: '否＝預約被取消後，直接從清冊移除（異動紀錄仍會留一行）；是＝清冊保留一列「已取消」' });
+    setProp_('MIG_V7', '1');
+    MEMO = {};
+  });
+}
+function migrateV6_() {
+  if (prop_('MIG_V6')) return;
+  withLock_(function () { if (!prop_('MIG_V6')) doMigrateV6_(); });
+}
+function doMigrateV6_() {
+  USE_CACHE = false; MEMO = {};
+  [T.BOOK, T.CLIENT].forEach(function (def) {
+    const sh = ss_().getSheetByName(def.name);
+    const n = def.cols.length;
+    if (sh.getMaxColumns() < n) sh.insertColumnsAfter(sh.getMaxColumns(), n - sh.getMaxColumns());
+    sh.getRange(1, n).setValue(def.cols[n - 1][1]).setFontWeight('bold').setBackground('#fff35c');
+  });
+  if (!rows_(T.SET).some(function (r) { return String(r.k).trim() === '收費類別'; }))
+    addRow_(T.SET, { k: '收費類別', v: '健保600, 健保1200, 自費1600', memo: '預約表上的收費選項，用逗號分開（個案看不到）' });
+  setProp_('MIG_V6', '1');
+  MEMO = {};
+}
+
+/* 個案提醒：預約前 24 小時一次（每小時檢查） */
+function clientReminders_() {
+  const S = settings_(), now = Date.now();
+  let sent = 0;
+  rows_(T.BOOK).forEach(function (x) {
+    if (x.status !== '已確認' || !x.date || !x.time) return;
+    const h = (slotT_(x.date, x.time) - now) / 3600000;
+    if (h <= 0 || h > 24) return;
+    const r = String(x.reminded || '');
+    const add = function (t) { x.reminded = (x.reminded ? x.reminded + '；' : '') + t; };
+    let changed = false;
+    // 前 24 小時（離開始不到 3 小時才預約的就不傳）
+    if (!/24小時|^已提醒|需另外/.test(r)) {
+      if (!x.uid) add('無 LINE，需另外通知');
+      else if (h < 3) add('24小時：太晚預約略過');
+      else if (push_(x.uid, [txt_('🔔 預約提醒\n\n' + x.name + ' 您好，提醒您' + (x.date === today_() ? '今天 ' : '明天 ') + whenTxt_(x) + ' 在' + S.name + '有預約。' +
+        (S.addr ? '\n地點：' + S.addr : '') + '\n\n如需調整請盡早告訴我們' + (S.tel ? '，或來電 ' + S.tel : '') + '。')])) { add('24小時已提醒 ' + nowStr_()); sent++; }
+      else add('LINE 發送失敗，需另外通知');
+      changed = true;
+    }
+    if (changed) saveRow_(T.BOOK, x);
+  });
+  return sent;
+}
+
+function expireSubs_() {
+  const t = today_();
+  rows_(T.STAFF).filter(function (s) { return s.role === '代班' && s.until && s.until < t; })
+    .sort(function (a, b) { return b._row - a._row; })
+    .forEach(function (s) { ss_().getSheetByName(T.STAFF.name).deleteRow(s._row); log_('代班', s.name + ' 代班已到期'); });
+  forget_(T.STAFF);
+}
+
+function runReminders_(force) {
+  const S = settings_();
+  const tm = addDays_(today_(), 1);
+  const list = rows_(T.BOOK).filter(function (x) { return x.date === tm && ACTIVE.indexOf(x.status) >= 0; }).sort(byDT_);
+  const call = {};
+  let sent = 0;
+  list.forEach(function (x) { if (!x.uid || String(x.reminded || '').indexOf('需另外') >= 0) call[x.id] = 1; });
+  if (S.summary && list.length && (force || prop_('LAST_SUMMARY') !== today_())) {
+    setProp_('LAST_SUMMARY', today_());
+    let s = '🗓 明日行程　' + md_(tm) + '（' + wdOf_(tm) + '）共 ' + list.length + ' 位\n';
+    list.forEach(function (x) { s += '\n' + rng_(x) + '　' + x.name + (x.status === '待確認' ? '　⏳待確認' : '') + (call[x.id] ? '　☎需另外通知' + (x.phone ? ' ' + x.phone : '') : ''); });
+    pushRole_('諮商師', [txt_(s)]);
+  }
+  return { total: list.length, sent: sent, call: Object.keys(call).length };
+}
+
+/* ======================== 訊息內容 ======================== */
+
+function staffTxt_(bk, title) {
+  return title + '\n' + whenTxt_(bk) + '（' + durTxt_(bk.dur) + '）\n' + bk.name + (bk.phone ? '｜' + bk.phone : '') +
+    (bk.src === 'LINE' ? '（LINE 預約）' : '') + (bk.note ? '\n備註：' + bk.note : '') + (bk.extra ? '\n' + bk.extra : '');
+}
+
+function clientTxt_(bk, S) {
+  const when = whenTxt_(bk);
+  if (bk.status === '待確認') return '已收到您的預約申請 🙏\n\n時間：' + when + '\n狀態：待確認\n\n' + S.who + '確認後會再通知您。';
+  if (bk.status === '已確認') return '✅ 您的預約已確認\n\n時間：' + when + (S.addr ? '\n地點：' + S.addr : '') +
+    '\n\n如需取消或改期，請在預約日前一天以前，到「我的預約」操作；若當天才通知請假或改期，將會另外酌收 ' + S.fee + ' 元。';
+  if (bk.status === '已婉拒') return '很抱歉，您預約的 ' + when + ' 無法安排。\n請重新選擇其他時段，或直接傳訊息與我們聯繫 🙏';
+  if (bk.status === '已取消') return '您 ' + when + ' 的預約已取消。\n如有任何疑問，歡迎傳訊息與我們聯繫。';
+  return '';
+}
+
+function notifyClientStatus_(bk) {
+  if (!bk.uid) return false;
+  const s = clientTxt_(bk, settings_());
+  return s ? push_(bk.uid, [txt_(s)]) : false;
+}
+
+/* ======================== LINE API ======================== */
+
+function txt_(s) { return { type: 'text', text: String(s).slice(0, 4900) }; }
+
+function confirmTpl_(text, l1, d1, l2, d2) {
+  return {
+    type: 'template', altText: text.slice(0, 390),
+    template: { type: 'confirm', text: text.slice(0, 240), actions: [
+      { type: 'postback', label: l1.slice(0, 20), data: d1, displayText: l1 },
+      { type: 'postback', label: l2.slice(0, 20), data: d2, displayText: l2 }] }
+  };
+}
+
+function lineApi_(path, payload, method) {
+  const tok = prop_('LINE_TOKEN');
+  if (!tok) { log_('提醒', '尚未設定 LINE Channel access token'); return null; }
+  const opt = { method: method || 'post', headers: { Authorization: 'Bearer ' + tok }, muteHttpExceptions: true };
+  if (payload) { opt.contentType = 'application/json'; opt.payload = JSON.stringify(payload); }
+  const r = UrlFetchApp.fetch('https://api.line.me/v2/bot/' + path, opt);
+  if (r.getResponseCode() !== 200) { log_('LINE錯誤', path + ' ' + r.getResponseCode() + ' ' + r.getContentText()); return null; }
+  return r;
+}
+
+function push_(to, msgs) { return !!lineApi_('message/push', { to: to, messages: msgs }); }
+function reply_(token, msgs) { return token ? !!lineApi_('message/reply', { replyToken: token, messages: msgs }) : false; }
+function pushRole_(role, msgs) { staffIds_(role).forEach(function (u) { push_(u, msgs); }); }
+
+function profileName_(uid) {
+  try {
+    const r = lineApi_('profile/' + uid, null, 'get');
+    return r ? JSON.parse(r.getContentText()).displayName : 'LINE 使用者';
+  } catch (e) { return 'LINE 使用者'; }
+}
+
+/* ======================== 時段規則 ======================== */
+
+function settings_() {
+  if (MEMO._set) return MEMO._set;
+  const s = {};
+  rows_(T.SET).forEach(function (r) { s[String(r.k).trim()] = r.v; });
+  const yes = function (k, d) { const v = String(s[k] === undefined ? '' : s[k]).trim(); return v === '' ? d : v === '是'; };
+  const r = {
+    name: s['諮商室名稱'] || '諮商室', who: s['諮商師稱呼'] || '諮商師', addr: String(s['地址'] || ''), tel: String(s['電話'] || ''),
+    days: num_(s['開放預約天數'], 28), maxDur: num_(s['個案最長可約(分鐘)'], 120), maxN: num_(s['每人最多未來預約數'], 1),
+    keepCancel: yes('取消後保留紀錄', false), sameDay: yes('可預約當天', false), needConfirm: yes('需要諮商師確認', false), defaultOpen: yes('未設定的日期預設開放', true),
+    fee: num_(s['當日請假加收金額'], 300),
+    prices: String(s['收費類別'] || '健保600, 健保1200, 自費1600').split(/[,，、]/).map(function (x) { return x.trim(); }).filter(String), remindHour: num_(s['每日行程摘要時間(點)'] !== undefined ? s['每日行程摘要時間(點)'] : s['提醒發送時間(點)'], 20), summary: yes('每日行程摘要', false)
+  };
+  MEMO._set = r;
+  return r;
+}
+
+function bizMap_() {
+  const m = {};
+  rows_(T.BIZ).forEach(function (r) { m[String(r.wd).replace(/[星期週周\s]/g, '')] = parseHours_(r.hours); });
+  return m;
+}
+function bizHours_(d) { return bizMap_()[wdOf_(d)] || []; }
+
+function openHours_(S, d) {
+  const r = rows_(T.OPEN).filter(function (x) { return x.date === d; })[0];
+  if (r) return parseHours_(r.hours).filter(function (h) { return bizHours_(d).indexOf(h) >= 0; });
+  return S.defaultOpen ? bizHours_(d) : [];
+}
+
+function openMap_(S, from, to) {
+  const out = {}, saved = {};
+  rows_(T.OPEN).forEach(function (x) { saved[x.date] = parseHours_(x.hours); });
+  const biz = bizMap_();
+  for (let d = from; d <= to; d = addDays_(d, 1)) {
+    const b = biz[wdOf_(d)] || [];
+    if (!b.length) continue;
+    out[d] = (saved[d] !== undefined ? saved[d] : (S.defaultOpen ? b : [])).filter(function (h) { return b.indexOf(h) >= 0; });
+  }
+  return out;
+}
+
+function setOpen_(date, hours) {
+  const t = rows_(T.OPEN);
+  const r = t.filter(function (x) { return x.date === date; })[0];
+  if (r) { r.hours = hours.join(','); saveRow_(T.OPEN, r); }
+  else addRow_(T.OPEN, { date: date, hours: hours.join(',') });
+}
+
+function isOpenCell_(S, d, m) { return openHours_(S, d).indexOf(Math.floor(m / 60)) >= 0; }
+
+function busyAt_(d, m, ign) {
+  const b = rows_(T.BOOK).some(function (x) { return x.id !== ign && ACTIVE.indexOf(x.status) >= 0 && x.date === d && m >= toMin_(x.time) && m < toMin_(x.time) + Number(x.dur); });
+  return b || rows_(T.HOLD).some(function (h) { return h.date === d && m >= toMin_(h.time) && m < toMin_(h.time) + Number(h.dur); });
+}
+
+function slotState_(S, d, s, dur, ign) {
+  const t = today_();
+  if (!d || d < t || (d === t && !S.sameDay) || slotT_(d, m2t_(s)) <= Date.now()) return 'past';
+  if (d > addDays_(t, S.days)) return 'closed';
+  for (let m = s; m < s + dur; m += 30) {
+    if (!isOpenCell_(S, d, m)) return 'closed';
+    if (busyAt_(d, m, ign)) return 'busy';
+  }
+  return 'ok';
+}
+
+function optProblem_(bk, o) {
+  const s0 = toMin_(o.time), d = Number(bk.dur);
+  if (slotT_(o.date, o.time) <= Date.now()) return '這個時間已經過了';
+  if (o.date === bk.date && o.time === bk.time) return '跟原本時間一樣';
+  const biz = bizHours_(o.date);
+  for (let m = s0; m < s0 + d; m += 30) {
+    if (biz.indexOf(Math.floor(m / 60)) < 0) return '不是營業時段';
+    if (busyAt_(o.date, m, bk.id)) return '已經有預約或保留';
+  }
+  return '';
+}
+
+function bookingsInHour_(d, h) {
+  return rows_(T.BOOK).filter(function (x) { return ACTIVE.indexOf(x.status) >= 0 && x.date === d && toMin_(x.time) < (h + 1) * 60 && toMin_(x.time) + Number(x.dur) > h * 60; });
+}
+
+function durOptions_(S) { const a = []; for (let m = 60; m <= S.maxDur; m += 30) a.push(m); return a; }
+function canChange_(bk) { return today_() < bk.date; }
+function canLeave_(bk) { return bk.date === today_() && Date.now() < slotT_(bk.date, m2t_(toMin_(bk.time) + Number(bk.dur))); }
+
+/* ======================== 資料存取 ======================== */
+
+var SS_ = null;
+function ss_() { if (!SS_) { const id = prop_('SHEET_ID'); SS_ = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet(); } return SS_; }
+function colIdx_(def, key) { for (let i = 0; i < def.cols.length; i++) if (def.cols[i][0] === key) return i; return -1; }
+
+// 同一次執行內，每張表只讀一次；寫入後清掉快取
+var MEMO = {};
+// 跨次執行的快取（只給「讀取畫面」用）：表格內容暫存 30 分鐘，任何寫入或手動編輯都會讓它失效
+var USE_CACHE = false;
+const CACHE_TTL = 1800;
+function cache_() { return CacheService.getScriptCache(); }
+function forget_(def) {
+  delete MEMO[def.name]; if (def === T.SET) delete MEMO._set;
+  try { cache_().put('W_' + def.name, String(Date.now()), CACHE_TTL + 60); cache_().remove('S_' + def.name); } catch (e) { }
+}
+function prefetch_(defs) {
+  if (!USE_CACHE) return;
+  try {
+    const keys = [];
+    defs.forEach(function (d) { keys.push('S_' + d.name, 'W_' + d.name); });
+    const got = cache_().getAll(keys);
+    defs.forEach(function (d) {
+      const hit = got['S_' + d.name];
+      if (!hit || MEMO[d.name]) return;
+      const c = JSON.parse(hit);
+      if (Number(got['W_' + d.name] || 0) < c.t) MEMO[d.name] = c.rows;
+    });
+  } catch (e) { }
+}
+function rows_(def) {
+  if (!MEMO[def.name]) {
+    const t = Date.now();
+    const sh = ss_().getSheetByName(def.name);
+    const v = sh.getDataRange().getValues();
+    MEMO[def.name] = v.slice(1).map(function (r, i) {
+      const o = { _row: i + 2 };
+      def.cols.forEach(function (c, j) { o[c[0]] = norm_(c[0], r[j]); });
+      return o;
+    }).filter(function (o) { return def.cols.some(function (c) { return o[c[0]] !== ''; }); });
+    if (USE_CACHE && def !== T.LOG) {
+      try { const j = JSON.stringify({ t: t, rows: MEMO[def.name] }); if (j.length < 90000) cache_().put('S_' + def.name, j, CACHE_TTL); } catch (e) { }
+    }
+  }
+  return MEMO[def.name].map(function (o) { return Object.assign({}, o); });
+}
+
+// 有人直接在試算表手動修改時，清掉那張表的快取
+function onEdit(e) {
+  try {
+    const name = e.range.getSheet().getName();
+    Object.keys(T).forEach(function (k) { if (T[k].name === name) forget_(T[k]); });
+  } catch (err) { }
+}
+
+function norm_(k, v) {
+  if (v === null || v === undefined) return '';
+  if (k === 'date' || k === 'until') return fmtDate_(v);
+  if (k === 'time') return fmtTime_(v);
+  if (v instanceof Date) return Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm');
+  return String(v).trim();
+}
+
+function toRowArr_(def, o) {
+  return def.cols.map(function (c) {
+    const v = o[c[0]];
+    if (v === undefined || v === null) return '';
+    const s = String(v);
+    return /^\d/.test(s) && (c[0] === 'phone' || c[0] === 'date' || c[0] === 'until' || c[0] === 'time' || c[0] === 'hours') ? "'" + s : s;
+  });
+}
+
+function addRow_(def, o) {
+  const sh = ss_().getSheetByName(def.name);
+  sh.getRange(sh.getLastRow() + 1, 1, 1, def.cols.length).setValues([toRowArr_(def, o)]);
+  forget_(def);
+}
+function saveRow_(def, o) { ss_().getSheetByName(def.name).getRange(o._row, 1, 1, def.cols.length).setValues([toRowArr_(def, o)]); forget_(def); }
+
+function findBooking_(id) { return rows_(T.BOOK).filter(function (x) { return x.id === String(id); })[0]; }
+function newId_() { let max = 1000; rows_(T.BOOK).forEach(function (x) { const n = Number(x.id); if (n > max) max = n; }); return String(max + 1); }
+function touch_(bk) { bk.updated = nowStr_(); }
+function setLast_(uid, id) { CacheService.getScriptCache().put('last_' + uid, String(id), 600); }
+
+function findClient_(uid) { return rows_(T.CLIENT).filter(function (c) { return c.uid === uid; })[0]; }
+function upsertClient_(uid, patch) {
+  const c = findClient_(uid);
+  if (c) { Object.keys(patch).forEach(function (k) { c[k] = patch[k]; }); c.last = nowStr_(); saveRow_(T.CLIENT, c); }
+  else addRow_(T.CLIENT, { uid: uid, name: patch.name || '', owe: patch.owe || '', first: nowStr_(), last: nowStr_() });
+}
+
+function roleOf_(uid) {
+  const s = rows_(T.STAFF).filter(function (x) { return x.uid === uid; })[0];
+  if (!s) return '';
+  if (s.role === '代班' && s.until && s.until < today_()) return '';
+  return s.role;
+}
+function staffIds_(role) { return rows_(T.STAFF).filter(function (x) { return x.role === role; }).map(function (x) { return x.uid; }); }
+function upsertStaff_(uid, name, role, until) {
+  const s = rows_(T.STAFF).filter(function (x) { return x.uid === uid; })[0];
+  if (s) { s.name = name; s.role = role; s.until = until; s.bound = nowStr_(); saveRow_(T.STAFF, s); }
+  else addRow_(T.STAFF, { uid: uid, name: name, role: role, until: until, bound: nowStr_() });
+}
+function removeStaff_(uid) {
+  const s = rows_(T.STAFF).filter(function (x) { return x.uid === uid; })[0];
+  if (!s) return false;
+  ss_().getSheetByName(T.STAFF.name).deleteRow(s._row); forget_(T.STAFF);
+  return true;
+}
+function removeBooking_(bk) {
+  ss_().getSheetByName(T.BOOK.name).deleteRow(bk._row); forget_(T.BOOK); MEMO = {};
+}
+function dropCancelled_(bk) {
+  if (settings_().keepCancel) return;
+  removeBooking_(bk);
+}
+function deleteHold_(bid) {
+  const h = rows_(T.HOLD).filter(function (x) { return x.bid === bid; })[0];
+  if (h) { ss_().getSheetByName(T.HOLD.name).deleteRow(h._row); forget_(T.HOLD); }
+}
+
+function log_(type, msg) {
+  try {
+    const sh = ss_().getSheetByName(T.LOG.name);
+    if (!sh) return;
+    sh.appendRow([nowStr_(), type, String(msg).slice(0, 1000)]);
+    if (sh.getLastRow() > 3000) sh.deleteRows(2, 1000);
+  } catch (e) { /* 紀錄失敗不影響主流程 */ }
+}
+
+/* ======================== 小工具 ======================== */
+
+function prop_(k) { return PropertiesService.getScriptProperties().getProperty(k) || ''; }
+function setProp_(k, v) { PropertiesService.getScriptProperties().setProperty(k, v); }
+function delProp_(k) { PropertiesService.getScriptProperties().deleteProperty(k); }
+function num_(v, d) { const n = Number(v); return (v === '' || v === null || v === undefined || isNaN(n)) ? d : n; }
+function pad_(x) { return ('0' + x).slice(-2); }
+function randKey_() { return Utilities.getUuid().replace(/-/g, '').slice(0, 12); }
+function uniq_(a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); }
+function numSort_(a, b) { return a - b; }
+function join_(a, b) { return a ? a + '；' + b : b; }
+function parseHours_(s) { return String(s || '').split(/[,，、\s]+/).map(Number).filter(function (n) { return n >= 0 && n <= 23 && String(n) !== 'NaN'; }).filter(function (n, i, a) { return a.indexOf(n) === i; }).sort(numSort_); }
+function today_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'); }
+function nowStr_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'); }
+function slotT_(d, t) { return new Date(d + 'T' + t + ':00+08:00').getTime(); }
+function addDays_(d, n) { return Utilities.formatDate(new Date(slotT_(d, '12:00') + n * 864e5), TZ, 'yyyy-MM-dd'); }
+function toMin_(t) { const p = String(t).split(':'); return Number(p[0]) * 60 + Number(p[1]); }
+function m2t_(m) { return pad_(Math.floor(m / 60)) + ':' + pad_(m % 60); }
+function wdOf_(d) { return WD[new Date(slotT_(d, '12:00')).getUTCDay()]; }
+function md_(d) { const p = d.split('-'); return Number(p[1]) + '/' + Number(p[2]); }
+function rng_(x) { return x.time + '～' + m2t_(toMin_(x.time) + Number(x.dur)); }
+function whenTxt_(x) { return md_(x.date) + '（' + wdOf_(x.date) + '）' + rng_(x); }
+function optTxt_(o, dur) { return md_(o.date) + '（' + wdOf_(o.date) + '）' + o.time + '～' + m2t_(toMin_(o.time) + Number(dur)); }
+function durTxt_(m) { m = Number(m); return (m % 60 ? (m / 60).toFixed(1) : m / 60) + ' 小時'; }
+function byDT_(a, b) { return (a.date + a.time) < (b.date + b.time) ? -1 : 1; }
+
+function fmtDate_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, TZ, 'yyyy-MM-dd');
+  const m = String(v || '').trim().match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+  return m ? m[1] + '-' + pad_(m[2]) + '-' + pad_(m[3]) : '';
+}
+function fmtTime_(v) {
+  if (v instanceof Date) return pad_(v.getHours()) + ':' + pad_(v.getMinutes());
+  const m = String(v || '').trim().match(/^(\d{1,2})[:：](\d{2})/);
+  return m ? pad_(m[1]) + ':' + m[2] : '';
+}
