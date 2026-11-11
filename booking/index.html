@@ -801,7 +801,7 @@ function renderAdd() {
   h += (warn ? '<p class="hint" style="margin-top:8px;color:#a1452f">⚠ 這個時段沒有開放（灰色），確定諮商師可以才排，系統會通知諮商師。</p>' : '<p class="hint" style="margin-top:8px">灰色（未開放）也可以點選，適合臨時加診；紅色已被預約，不能選。</p>') + '</div>';
   h += '<div class="card"><p class="step">④ 個案資料</p><div class="grid2">' +
     '<div class="full"><label>這位個案的 LINE（選填）</label><select class="f" id="da-l" onchange="adPickLine(this)"><option value="">沒有 LINE／不知道</option>' +
-    D.clients.slice().sort((a, b) => (b.booked - a.booked) || String(a.name).localeCompare(String(b.name), 'zh-Hant')).map(c => '<option value="' + esc(c.uid) + '" data-n="' + esc(c.name) + '" data-p="' + esc(c.price || '') + '"' + (AD.uid === c.uid ? ' selected' : '') + '>' + esc(c.name) + (c.booked ? '（曾用 LINE 預約）' : '（LINE 好友）') + '</option>').join('') + '</select></div>' +
+    D.clients.slice().sort((a, b) => (b.booked - a.booked) || String(a.name).localeCompare(String(b.name), 'zh-Hant')).map(c => '<option value="' + esc(c.uid) + '" data-n="' + esc(c.name) + '" data-p="' + esc(c.price || '') + '" data-t="' + esc(c.phone || '') + '"' + (AD.uid === c.uid ? ' selected' : '') + '>' + esc(c.name) + (c.booked ? '（曾用 LINE 預約）' : '（LINE 好友）') + '</option>').join('') + '</select></div>' +
     '<div><label>姓名</label><input class="f" id="da-n" maxlength="30" placeholder="例如：張先生" value="' + esc(AD.name) + '" oninput="AD.name=this.value"></div>' +
     '<div><label>電話（選填）</label><input class="f" id="da-p" inputmode="tel" placeholder="09xxxxxxxx" value="' + esc(AD.phone) + '" oninput="AD.phone=this.value"></div>' +
     '<div class="full"><label>收費（個案看不到）</label><select class="f" id="da-pr" onchange="AD.price=this.value"><option value="">未設定</option>' + (D.set.prices || []).map(p => '<option' + (AD.price === p ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select></div></div></div>';
@@ -815,6 +815,7 @@ function adPickLine(sel) {
   const o = sel.selectedOptions[0]; AD.uid = sel.value;
   if (o && o.dataset.n) AD.name = o.dataset.n;
   if (o && o.dataset.p) AD.price = o.dataset.p;
+  if (o && o.dataset.t && !AD.phone) AD.phone = o.dataset.t;
   render();
 }
 async function deskAdd() {
