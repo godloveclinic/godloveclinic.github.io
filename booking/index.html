@@ -6,9 +6,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>主愛心理諮商｜預約</title>
 <link rel="icon" href="favicon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Huninn&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+<link rel="preload" href="huninn-sub-v1.woff2" as="font" type="font/woff2" crossorigin>
+<style>@font-face{font-family:"Huninn";src:url(huninn-sub-v1.woff2) format("woff2");font-display:swap}</style>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
 <style>
 
@@ -260,6 +261,8 @@ const CONFIG = {
   API_URL: 'https://script.google.com/macros/s/AKfycbzwUyrhUd_mf47BmhbaSHuGTC1F9SdZPOXflgwMqGpw_Xp4p326co8b6vPWJCYUQ44zKw/exec'
 };
 /* ===================================== */
+// 先叫後台醒來（暖機）：和 LINE 登入同時進行，省下後台冷啟動的等待
+try { fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify({ action: 'ping' }) }).catch(function () { }); } catch (e) { }
 
 const WD = ['日', '一', '二', '三', '四', '五', '六'];
 const ACTIVE = ['待確認', '已確認'];
@@ -388,7 +391,12 @@ async function main() {
     await liff.init({ liffId: CONFIG.LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
     idToken = liff.getIDToken();
-    try { profileName = (await liff.getProfile()).displayName || ''; } catch (e) { }
+    try { profileName = localStorage.getItem('gl_pn') || ''; } catch (e) { }
+    liff.getProfile().then(function (p) {            // 暱稱在背景取得，不擋住畫面
+      profileName = p.displayName || profileName;
+      try { localStorage.setItem('gl_pn', profileName); } catch (e) { }
+      if (typeof L !== 'undefined' && L.fd && !L.fd.name) L.fd.name = profileName;
+    }).catch(function () { });
     await load();
   } catch (e) {
     freshRes();
