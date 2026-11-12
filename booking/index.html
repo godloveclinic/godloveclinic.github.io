@@ -225,12 +225,12 @@ header.top2 p{margin:3px 0 0;font-size:13px;opacity:.9}
 :root{--bg:#fff;--card:#fff;--ink:#4a3f3a;--mute:#9a8c80;--line:#f4dde0;--main:#ee7388;--main-d:#cf4d66;--soft:#fff0f2;--warn:#e0604f;--gold:#e8a93b;--heart:#e5584a}
 body{font-family:"Huninn","jf-openhuninn","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.6}
 b,strong,h1,h2,h3,button,th{font-synthesis:weight}
-header.top2{display:flex;align-items:center;gap:13px;background:linear-gradient(135deg,#ffa0a8 0%,#f0687d 100%);padding:calc(16px + env(safe-area-inset-top)) 18px 20px;border-radius:0 0 26px 26px;box-shadow:0 4px 14px rgba(240,104,125,.3);position:relative;overflow:hidden}
-header.top2::after{content:"♥";position:absolute;right:16px;top:6px;font-size:46px;color:rgba(255,255,255,.14);transform:rotate(14deg)}
-header.top2::before{content:"♥";position:absolute;right:64px;bottom:-6px;font-size:26px;color:rgba(255,255,255,.12);transform:rotate(-12deg)}
-header.top2 .logo{width:58px;height:58px;border-radius:50%;background:#fff;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.18);flex:none;object-fit:contain}
-header.top2 h1{font-size:22px;letter-spacing:2px;text-shadow:0 1px 2px rgba(0,0,0,.12)}
-header.top2 p{font-size:13px;letter-spacing:1px;opacity:.95}
+header.top2{display:flex;align-items:center;gap:16px;background:#e0707f;padding:calc(18px + env(safe-area-inset-top)) 20px 22px;border-radius:0 0 28px 28px;box-shadow:0 4px 14px rgba(224,112,127,.28);position:relative;overflow:hidden}
+header.top2::after{content:"";position:absolute;right:-26px;top:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.13)}
+header.top2::before{content:"";position:absolute;right:58px;bottom:14px;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.3);box-shadow:-46px -26px 0 -3px rgba(255,255,255,.22),38px -34px 0 -4px rgba(255,255,255,.25),84px 4px 0 -5px rgba(255,255,255,.2)}
+header.top2 .logo{width:58px;height:58px;border-radius:50%;background:#fff;padding:5px;box-shadow:0 0 0 7px rgba(255,255,255,.22);margin:0 3px 0 6px;flex:none;object-fit:contain;position:relative;z-index:1}
+header.top2 h1{font-size:22px;letter-spacing:2px;position:relative;z-index:1}
+header.top2 p{font-size:13px;letter-spacing:1px;opacity:.95;position:relative;z-index:1}
 .card{border-radius:18px;box-shadow:0 2px 12px rgba(230,120,140,.12);border:1px solid #fbe6e9}
 .chip{border-radius:22px;padding:6px 14px;border-color:#f4dde0}
 .chip.on{background:var(--main);border-color:var(--main);color:#fff}
