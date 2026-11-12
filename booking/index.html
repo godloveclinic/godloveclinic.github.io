@@ -190,6 +190,10 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .ftbl tr.closed td{background:#f1eee8}
 .dn{border:1px solid var(--main);background:#fff;color:var(--main-d);border-radius:14px;padding:3px 6px;font-size:12px;font-family:inherit;line-height:1.2;white-space:nowrap}
 .dn.on{background:var(--main);color:#fff}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.acts .dn{font-size:13px;padding:5px 11px;border-radius:16px}
+.dn.pri{background:var(--gold,#d9a441);border-color:var(--gold,#d9a441);color:#fff;font-weight:700}
+.ftbl td.who-c{padding:8px 8px}
 .ftbl input[type=checkbox]{width:18px;height:18px}
 .who{margin:2px 0}
 .who.leave b{text-decoration:line-through;color:#a1452f}
@@ -485,6 +489,11 @@ function renderMine() {
   D.mine.forEach(b => {
     h += '<div class="card"><div class="bk"><div class="info"><b>' + whenTxt(b) + '</b><span class="badge st-' + b.status + '">' + b.status + '</span><div class="hint">' + durTxt(b.dur) + '</div></div></div>';
     if (b.offer) h += '<p class="hint" style="margin:8px 0 0;color:#a67a1f">⏰ ' + esc(D.set.who) + '需要調整這個時間，請到 LINE 訊息選擇新時間</p>';
+    if (b.status === '已完成') {
+      const has = D.mine.some(x => x.id !== b.id && ACTIVE.includes(x.status));
+      h += has ? '<p class="hint" style="margin:8px 0 0">本次諮商已完成，您已預約好下一次。</p>' : '<div style="margin-top:10px"><button class="btn" style="width:100%" onclick="startNext(\'' + b.id + '\')">約下一次</button></div>';
+      h += '</div>'; return;
+    }
     if (b.status === '當日請假') h += '<p class="hint" style="margin:8px 0 0">已請假，原因：' + esc(b.leaveReason) + '</p>';
     else if (canChange(b)) {
       h += '<div class="rowbtn"><button class="btn ghost sm" onclick="startResched(\'' + b.id + '\')">改期</button>' +
@@ -533,6 +542,12 @@ async function doResched() {
     busyReq = false; await load(r.state);
   } catch (e) { busyReq = false; L.err = e.message; await load().catch(() => render()); scrollTo(0, 0); }
 }
+function startNext(id) {
+  const b = D.mine.find(x => x.id === id); if (!b) return;
+  L.next = true; L.tab = 'book'; L.resched = null; L.start = null; L.err = '';
+  L.date = addDays(b.date, 7); L.dur = b.dur; if (!L.fd.name) L.fd.name = b.name;
+  render(); scrollTo(0, 0);
+}
 async function doFinish(id) {
   const k = 'f' + id;
   if (!L.sure[k]) { L.sure[k] = true; render(); setTimeout(() => { L.sure[k] = false; render(); }, 5000); return; }
@@ -571,12 +586,11 @@ let stab = 'sheet', shSub = 'today', shWeek = 0, shRange = 'week', coDate = null
 const CO = { id: null, reason: '', opts: [], d: null };
 
 function renderStaff() {
-  const tabs = canEdit() ? [['sheet', '📒 預約表'], ['list', '📋 預約清單'], ['open', '🗓 開放時段'], ['add', '➕ 電話預約']] : [['sheet', '📒 預約表']];
+  const tabs = canEdit() ? [['sheet', '📒 預約表'], ['open', '🗓 開放時段'], ['add', '➕ 電話預約']] : [['sheet', '📒 預約表']];
   if (!tabs.some(t => t[0] === stab)) stab = 'sheet';
   let h = '<div class="chips">' + tabs.map(([k, l]) => '<button class="chip ' + (stab === k ? 'on' : '') + '" onclick="stab=\'' + k + '\';render()">' + l + '</button>').join('') +
     '<button class="chip" onclick="load().then(()=>toast(\'已更新\'))">🔄 重新整理</button></div>';
   if (stab === 'sheet') h += renderSheet();
-  else if (stab === 'list') h += renderCoList();
   else if (stab === 'open') h += renderOpen();
   else h += renderAdd();
   return h;
@@ -604,6 +618,24 @@ const noShowCell = b => {
   if ((b.status === '已確認' || b.status === '待確認') && canEdit()) return '<button class="dn" onclick="doNoShow(\'' + b.id + '\')">臨時<br>取消</button>';
   return '';
 };
+const laterOf = b => D.books.find(x => x.id !== b.id && ACTIVE.includes(x.status) && (x.date + x.time) > (b.date + b.time) && x.name === b.name);
+function actBtns(b) {
+  const id = b.id;
+  if (!canEdit()) return b.status === '已完成' ? '<b style="color:var(--main-d)">✔ 已完成</b>' : isOut(b) ? '✔ 未到' + (b.fee ? ' <span class="hint">' + esc(b.fee) + '</span>' : '') : '';
+  if (ACTIVE.includes(b.status)) {
+    let x = '<button class="dn" onclick="openCO(\'' + id + '\')">改約</button>';
+    if (b.date <= today()) x += '<button class="dn" onclick="doNoShow(\'' + id + '\')">臨時取消</button>';
+      if (b.date < today() || nowMs() >= finishAt(b)) x += '<button class="dn" onclick="markDone(\'' + id + '\')">本次會談完成</button>';
+      else x += '<span class="hint">🔒 ' + m2t(Math.round((finishAt(b) - slotT(b.date, '00:00')) / 60000)) + ' 後可按「完成」</span>';
+    return x;
+  }
+  if (isOut(b)) return '<button class="dn on" onclick="undoNoShow(\'' + id + '\')">✔ 未到</button>' + (b.fee ? '<span class="hint">' + esc(b.fee) + '</span>' : '');
+  if (b.status === '已完成') {
+    const nx = laterOf(b);
+    return '<button class="dn on" onclick="undoDone(\'' + id + '\')">✔ 已完成</button>' + (nx ? '<span class="hint">下一次：' + md(nx.date) + ' ' + nx.time + '</span>' : '<button class="dn pri" onclick="renewFrom(\'' + id + '\')">預約下一次</button>');
+  }
+  return '';
+}
 function doNoShow(id) {
   const b = D.books.find(x => x.id === id); if (!b) return;
   const fee = D.set.fee || 300, who = b.name + '　' + md(b.date) + '　' + rng(b);
@@ -687,24 +719,22 @@ function dayCard(d, extra) {
     const secs = daySections(d);
     if (!secs.length) h += '<div class="hint">休診</div>';
     secs.forEach(sec => {
-      h += '<table class="ftbl"><tr><th>時段</th><th>個案</th><th>臨時<br>取消</th><th>本次<br>完成</th></tr>';
+      h += '<table class="ftbl"><tr><th>時段</th><th>個案與操作</th></tr>';
       sec.h.forEach(hr => {
         const a = hr * 60, e = a + 60;
         const list = D.books.filter(b => b.date === d && SHOWN.includes(b.status) && toMin(b.time) < e && toMin(b.time) + b.dur > a).sort(byDT);
         const blk = D.holds.filter(x => x.date === d && toMin(x.time) < e && toMin(x.time) + +x.dur > a);
         const open = (D.open[d] || []).includes(hr);
-        let who = '', tc = '', pd = '';
+        let who = '';
         list.forEach(b => {
           const leave = b.status === '當日請假';
           if (toMin(b.time) >= a) {
-            who += '<div class="who' + (leave ? ' leave' : '') + '">' + nameTap(b) + ' <span class="hint">' + rng(b) + '</span><br>' + priceBadge(b) + contactOf(b) + badges(b) + '</div>';
-            tc += '<div>' + noShowCell(b) + '</div>';
-            pd += '<div>' + doneBtn(b) + '</div>';
+            who += '<div class="who' + (leave ? ' leave' : '') + '">' + nameTap(b) + ' <span class="hint">' + rng(b) + '</span><br>' + priceBadge(b) + contactOf(b) + badges(b) + (b.offer ? '<div class="hint" style="color:#a67a1f">⏳ 已請個案改時間，等待個案選擇</div>' : '') + '<div class="acts">' + actBtns(b) + '</div>' + (CO.id === b.id ? coEditor(b) : '') + '</div>';
           } else who += '<div class="who cont">↳ ' + esc(b.name) + '（續到 ' + endOf(b) + '）</div>';
         });
         blk.forEach(x => { who += '<div class="who cont">🔒 諮商師保留 ' + x.time + '～' + m2t(toMin(x.time) + +x.dur) + '</div>'; });
         if (!who) who = '<span class="hint">' + (open ? '' : '未開放') + '</span>';
-        h += '<tr class="' + (open ? '' : 'closed') + '"><td class="tl">' + hLabel(hr) + '</td><td>' + who + '</td><td class="c">' + tc + '</td><td class="c">' + pd + '</td></tr>';
+        h += '<tr class="' + (open ? '' : 'closed') + '"><td class="tl">' + hLabel(hr) + '</td><td class="who-c">' + who + '</td></tr>';
       });
       h += '</table>';
     });
