@@ -700,10 +700,9 @@ function askBox(title, text, btns) {
 async function doNoShow(id) {
   const b = D.books.find(x => x.id === id); if (!b) return;
   const fee = D.set.fee || 300, who = b.name + '　' + md(b.date) + '　' + rng(b);
-  const r = await askBox('臨時取消／未到', who + '\n\n標示為「未到」，下一次預約要加收 ' + fee + ' 元嗎？', [['未到，下次加收 ' + fee + ' 元', '', 'charge'], ['未到，不加收', 'ghost', 'free'], ['先不要', 'ghost', '']]);
+  const r = await askBox('臨時取消／未到', who + '\n\n標示為臨時取消，並傳訊息請諮商師決定下次是否加收 ' + fee + ' 元。', [['確定', '', 'ask'], ['先不要', 'ghost', '']]);
   if (!r) return;
-  const charge = r === 'charge';
-  act(() => api('noShow', { id, charge }), res => charge ? ('已標示未到。' + (res.note || '')) : '已標示未到（不加收）');
+  act(() => api('setStatus', { id, status: '當日請假', reason: '櫃檯登記' }), () => '已標示臨時取消，並通知諮商師決定是否加收');
 }
 async function undoNoShow(id) {
   const b = D.books.find(x => x.id === id); if (!b) return;
