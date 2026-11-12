@@ -987,6 +987,9 @@ function qaPick(i) {
   if (o) { QA.name = o.name; QA.phone = o.phone; QA.price = o.price; }
   drawQA();
 }
+const qaReady = () => !!QA && String(QA.name || '').trim() !== '' && (QA.mode === 'new' || QA.pick !== '');
+const qaHint = () => qaReady() ? '新增預約' : (QA && QA.mode === 'old' ? '請先選擇個案' : '請先填寫姓名');
+function qaBtn() { const b = document.getElementById('qa-go'); if (b) { b.disabled = !qaReady(); b.textContent = qaHint(); } }
 function drawQA() {
   if (!QA) return;
   let m = document.getElementById('qa');
@@ -1003,11 +1006,11 @@ function drawQA() {
     h += '<select class="f" onchange="qaPick(this.value)"><option value="">請選擇個案</option>' + ppl.map((o, i) => '<option value="' + i + '"' + (String(q.pick) === String(i) ? ' selected' : '') + '>' + esc(o.name) + (o.phone ? '　' + esc(o.phone) : '') + '</option>').join('') + '</select>';
     if (q.pick !== '') h += '<div class="row"><span>電話</span><span>' + (q.phone ? esc(q.phone) : '—') + '</span></div><div class="row"><span>收費</span><span>' + (q.price ? esc(q.price) + '<span class="hint">（沿用舊的）</span>' : '<span class="hint">未設定</span>') + '</span></div>';
   } else {
-    h += '<div class="grid2"><div><label>姓名</label><input class="f" maxlength="30" placeholder="例如：張先生" value="' + esc(q.name) + '" oninput="QA.name=this.value"></div>' +
+    h += '<div class="grid2"><div><label>姓名</label><input class="f" maxlength="30" placeholder="例如：張先生" value="' + esc(q.name) + '" oninput="QA.name=this.value;qaBtn()"></div>' +
       '<div><label>電話（選填）</label><input class="f" inputmode="tel" placeholder="09xxxxxxxx" value="' + esc(q.phone) + '" oninput="QA.phone=this.value"></div>' +
       '<div class="full"><label>收費（個案看不到）</label><select class="f" onchange="QA.price=this.value"><option value="">未設定</option>' + (D.set.prices || []).map(p => '<option' + (q.price === p ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select></div></div>';
   }
-  h += '<button class="btn" style="margin-top:14px" ' + (busyReq ? 'disabled' : '') + ' onclick="qaSave()">新增預約</button></div>';
+  h += '<button class="btn" id="qa-go" style="margin-top:14px" ' + (qaReady() ? '' : 'disabled') + ' onclick="qaSave()">' + qaHint() + '</button></div>';
   m.innerHTML = h;
   const sb = m.querySelector('.sheetbox'); if (sb) sb.scrollTop = top;
 }
