@@ -595,7 +595,6 @@ function badges(b) {
   if (b.status === '待確認') x += '<span class="pill gold">待確認</span>';
   return x;
 }
-const paidBox = b => '<input type="checkbox" ' + (b.paid ? 'checked' : '') + (canEdit() ? ' onclick="setPaid(\'' + b.id + '\',this.checked)"' : ' disabled') + '>';
 const doneBtn = b => {
   if (b.status === '已完成') return canEdit() ? '<button class="dn on" onclick="undoDone(\'' + b.id + '\')">✔已完成</button>' : '<b style="color:var(--main-d)">✔</b>';
   if ((b.status === '已確認' || b.status === '待確認') && canEdit()) return '<button class="dn" onclick="markDone(\'' + b.id + '\')">完成</button>';
@@ -607,7 +606,6 @@ function undoDone(id) {
   if (window.confirm && !confirm('要取消「已完成」嗎？\n' + b.name + '　' + md(b.date) + '　' + rng(b))) return;
   act(() => api('setStatus', { id, status: '已確認', reason: '' }), () => '已改回「已確認」');
 }
-function setPaid(id, v) { act(() => api('paid', { id, value: v })); }
 
 /* ---- 收費（只有工作人員看得到） ---- */
 function priceBadge(b) {
@@ -693,19 +691,19 @@ function renderRoster() {
   const inRange = b => shRange === 'today' ? b.date === t : shRange === 'week' ? (b.date >= wk[0] && b.date <= wk[4]) : shRange === 'month' ? b.date.slice(0, 7) === ym : true;
   const list = D.books.filter(inRange).sort(byDT);
   const act2 = list.filter(b => SHOWN.includes(b.status) && b.status !== '當日請假');
-  const cnt = { n: act2.length, leave: list.filter(b => b.status === '當日請假').length, cancel: list.filter(b => b.status === '已取消' || b.status === '已婉拒').length, extra: list.filter(b => b.extra && SHOWN.includes(b.status)).length, paid: act2.filter(b => b.paid).length };
+  const cnt = { n: act2.length, leave: list.filter(b => b.status === '當日請假').length, cancel: list.filter(b => b.status === '已取消' || b.status === '已婉拒').length, extra: list.filter(b => b.extra && SHOWN.includes(b.status)).length, done: act2.filter(b => b.status === '已完成').length };
   const rg = [['today', '今天'], ['week', '本週'], ['month', '本月'], ['all', '全部']];
   let h = '<div class="chips">' + rg.map(([k, l]) => '<button class="chip ' + (shRange === k ? 'on' : '') + '" onclick="shRange=\'' + k + '\';render()">' + l + '</button>').join('') + '</div>';
-  h += '<div class="stats"><div><b>' + cnt.n + '</b>預約</div><div><b>' + cnt.leave + '</b>臨時取消</div><div><b>' + cnt.cancel + '</b>已取消</div><div><b>' + cnt.extra + '</b>需加收</div><div><b>' + cnt.paid + '/' + cnt.n + '</b>已領</div></div>';
-  h += '<div class="card"><div class="scroll"><table class="tbl"><tr><th>日期</th><th>時間</th><th>姓名</th><th>聯絡</th><th>狀態</th><th>臨時取消</th><th>加收</th><th>諮商師已領</th><th>異動紀錄</th><th>最後更新</th>' + (canEdit() ? '<th></th>' : '') + '</tr>';
-  if (!list.length) h += '<tr><td colspan="11" class="hint" style="text-align:center;padding:16px">這段期間沒有預約</td></tr>';
+  h += '<div class="stats"><div><b>' + cnt.n + '</b>預約</div><div><b>' + cnt.leave + '</b>臨時取消</div><div><b>' + cnt.cancel + '</b>已取消</div><div><b>' + cnt.extra + '</b>需加收</div><div><b>' + cnt.done + '/' + cnt.n + '</b>已完成</div></div>';
+  h += '<div class="card"><div class="scroll"><table class="tbl"><tr><th>日期</th><th>時間</th><th>姓名</th><th>聯絡</th><th>狀態</th><th>臨時取消</th><th>加收</th><th>異動紀錄</th><th>最後更新</th>' + (canEdit() ? '<th></th>' : '') + '</tr>';
+  if (!list.length) h += '<tr><td colspan="10" class="hint" style="text-align:center;padding:16px">這段期間沒有預約</td></tr>';
   list.forEach(b => {
     const dead = b.status === '已取消' || b.status === '已婉拒';
     const hist = [b.history ? '改期：' + b.history : '', b.leaveReason ? '請假：' + b.leaveReason : '', b.note].filter(Boolean).join('；');
     const st = canEdit() ? '<select onchange="setStatus(\'' + b.id + '\',this.value)">' + STATUS.map(s => '<option' + (s === b.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' : '<span class="badge st-' + b.status + '">' + b.status + '</span>';
     h += '<tr class="' + (dead ? 'dead' : '') + '"><td>' + md(b.date) + '（' + wdOf(b.date) + '）</td><td>' + rng(b) + '</td><td style="white-space:nowrap">' + nameTap(b) + '<br>' + priceBadge(b) + '</td><td>' + contactOf(b) + '</td><td>' + st + '</td>' +
       '<td class="c">' + (b.status === '當日請假' ? '✔ ' + esc(b.fee || '') : '') + '</td><td style="color:#c0392b">' + esc(b.extra || '') + '</td>' +
-      '<td class="c">' + (dead ? '' : paidBox(b)) + '</td><td class="hint">' + esc(hist) + '</td><td class="hint" style="white-space:nowrap">' + esc(b.updated || '') + '</td>' + (canEdit() ? '<td class="c"><button class="delb" onclick="delBook(\'' + b.id + '\')" title="刪除這筆預約">🗑</button></td>' : '') + '</tr>';
+      '<td class="hint">' + esc(hist) + '</td><td class="hint" style="white-space:nowrap">' + esc(b.updated || '') + '</td>' + (canEdit() ? '<td class="c"><button class="delb" onclick="delBook(\'' + b.id + '\')" title="刪除這筆預約">🗑</button></td>' : '') + '</tr>';
   });
   h += '</table></div><p class="hint">預約、改期、取消、請假、加收都會自動更新到這裡。' + (canEdit() ? '改「狀態」會自動通知有 LINE 的個案；改成「當日請假」會請諮商師決定是否收費。' : '') + '</p></div>';
   return h;
