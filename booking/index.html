@@ -684,21 +684,30 @@ function actBtns(b) {
   }
   return '';
 }
-function doNoShow(id) {
+/* 頁面內的確認視窗（瀏覽器內建的 confirm 在 LINE 或預覽視窗裡可能被擋掉，按了會完全沒反應） */
+function askBox(title, text, btns) {
+  return new Promise(res => {
+    const old = document.getElementById('ask'); if (old) old.remove();
+    const m = document.createElement('div'); m.id = 'ask'; m.className = 'mask'; m.style.zIndex = 400;
+    const done = v => { m.remove(); res(v); };
+    m.onclick = e => { if (e.target === m) done(''); };
+    m.innerHTML = '<div class="sheetbox"><h3>' + esc(title) + '</h3><div style="white-space:pre-line;margin:8px 0 14px;font-size:15px">' + esc(text) + '</div><div style="display:flex;flex-direction:column;gap:8px"></div></div>';
+    const box = m.querySelector('div > div:last-child');
+    btns.forEach(([label, cls, val]) => { const b = document.createElement('button'); b.className = 'btn' + (cls ? ' ' + cls : ''); b.textContent = label; b.onclick = () => done(val); box.appendChild(b); });
+    document.body.appendChild(m);
+  });
+}
+async function doNoShow(id) {
   const b = D.books.find(x => x.id === id); if (!b) return;
   const fee = D.set.fee || 300, who = b.name + '　' + md(b.date) + '　' + rng(b);
-  let charge = true;
-  if (window.confirm) {
-    if (!confirm('臨時取消／未到\n' + who + '\n\n按「確定」：標示為未到，下一次預約自動加收 ' + fee + ' 元。\n按「取消」：再選擇是否改成不加收。')) {
-      if (!confirm('改成「未到、不加收」嗎？\n' + who)) return;
-      charge = false;
-    }
-  }
-  act(() => api('noShow', { id, charge }), r => charge ? ('已標示未到。' + (r.note || '')) : '已標示未到（不加收）');
+  const r = await askBox('臨時取消／未到', who + '\n\n標示為「未到」，下一次預約要加收 ' + fee + ' 元嗎？', [['未到，下次加收 ' + fee + ' 元', '', 'charge'], ['未到，不加收', 'ghost', 'free'], ['先不要', 'ghost', '']]);
+  if (!r) return;
+  const charge = r === 'charge';
+  act(() => api('noShow', { id, charge }), res => charge ? ('已標示未到。' + (res.note || '')) : '已標示未到（不加收）');
 }
-function undoNoShow(id) {
+async function undoNoShow(id) {
   const b = D.books.find(x => x.id === id); if (!b) return;
-  if (window.confirm && !confirm('要取消「未到」，改回預約嗎？\n' + b.name + '　' + md(b.date) + '　' + rng(b) + '\n（已標註的加收會一併取消）')) return;
+  if (!await askBox('取消「未到」', b.name + '　' + md(b.date) + '　' + rng(b) + '\n\n改回「預約」？已標註的加收會一併取消。', [['改回預約', '', 'y'], ['先不要', 'ghost', '']])) return;
   act(() => api('setStatus', { id, status: '已確認', reason: '' }), () => '已改回預約');
 }
 const doneBtn = b => {
@@ -707,9 +716,9 @@ const doneBtn = b => {
   return '';
 };
 function markDone(id) { act(() => api('setStatus', { id, status: '已完成', reason: '' }), () => '已標示本次諮商完成'); }
-function undoDone(id) {
+async function undoDone(id) {
   const b = D.books.find(x => x.id === id); if (!b) return;
-  if (window.confirm && !confirm('要取消「已完成」嗎？\n' + b.name + '　' + md(b.date) + '　' + rng(b))) return;
+  if (!await askBox('取消「已完成」', b.name + '　' + md(b.date) + '　' + rng(b) + '\n\n改回「預約」？', [['改回預約', '', 'y'], ['先不要', 'ghost', '']])) return;
   act(() => api('setStatus', { id, status: '已確認', reason: '' }), () => '已改回「已確認」');
 }
 
@@ -813,15 +822,15 @@ function renderRoster() {
   h += '</table></div><p class="hint">預約、改期、取消、請假、加收都會自動更新到這裡。' + (canEdit() ? '改「狀態」會自動通知有 LINE 的個案；改成「當日請假」會請諮商師決定是否收費。' : '') + '</p></div>';
   return h;
 }
-function delBook(id) {
+async function delBook(id) {
   const b = D.books.find(x => x.id === id); if (!b) return;
-  const msg = '確定要刪除這筆預約嗎？\n' + b.name + '　' + md(b.date) + '（' + wdOf(b.date) + '）' + rng(b) + '\n\n刪除後清冊就看不到，無法復原，也不會通知個案。';
-  if (window.confirm && !confirm(msg)) return;
+  const msg = b.name + '　' + md(b.date) + '（' + wdOf(b.date) + '）' + rng(b) + '\n\n刪除後清冊就看不到，無法復原，也不會通知個案。';
+  if (!await askBox('確定要刪除這筆預約嗎？', msg, [['刪除', '', 'y'], ['先不要', 'ghost', '']])) return;
   act(() => api('delBook', { id }), () => '已刪除');
 }
-function setStatus(id, st) {
+async function setStatus(id, st) {
   let reason = '';
-  if (st === '當日請假') { reason = window.prompt ? (prompt('請假原因（例如：個案來電請假）', '個案來電請假') || '櫃檯登記') : '櫃檯登記'; }
+  if (st === '當日請假') { reason = '櫃檯登記'; }
   act(() => api('setStatus', { id, status: st, reason }), r => r.viaLine === false && ['已確認', '已取消', '已婉拒'].includes(st) ? '這位個案沒有 LINE，請另外通知' : '已更新');
 }
 
