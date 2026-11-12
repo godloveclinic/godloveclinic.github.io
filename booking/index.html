@@ -270,6 +270,9 @@ const WD = ['日', '一', '二', '三', '四', '五', '六'];
 const ACTIVE = ['待確認', '已確認'];
 const SHOWN = ['待確認', '已確認', '當日請假', '已完成', '未到'];
 const STATUS = ['待確認', '已確認', '已取消', '已婉拒', '當日請假', '已完成', '未到'];
+const ST_OPT = [['已確認', '預約'], ['已取消', '取消'], ['未到', '未到'], ['已完成', '完成']];
+const stGroup = s => ({ '待確認': '已確認', '已確認': '已確認', '已取消': '已取消', '已婉拒': '已取消', '當日請假': '未到', '未到': '未到', '已完成': '已完成' }[s] || s);
+const stLabel = s => (ST_OPT.find(o => o[0] === stGroup(s)) || [0, s])[1];
 const SECTIONS = [{ n: '上午', h: [10, 11, 12] }, { n: '下午', h: [14, 15, 16] }, { n: '晚上', h: [18, 19, 20] }];
 
 let D = null, idToken = '', profileName = '', clockOff = 0, busyReq = false, STALE = false;
@@ -595,6 +598,29 @@ function badges(b) {
   if (b.status === '待確認') x += '<span class="pill gold">待確認</span>';
   return x;
 }
+const isOut = b => b.status === '當日請假' || b.status === '未到';
+const noShowCell = b => {
+  if (isOut(b)) return (canEdit() ? '<button class="dn on" onclick="undoNoShow(\'' + b.id + '\')">✔<br>未到</button>' : '✔') + (b.fee ? '<div class="hint">' + esc(b.fee) + '</div>' : '');
+  if ((b.status === '已確認' || b.status === '待確認') && canEdit()) return '<button class="dn" onclick="doNoShow(\'' + b.id + '\')">臨時<br>取消</button>';
+  return '';
+};
+function doNoShow(id) {
+  const b = D.books.find(x => x.id === id); if (!b) return;
+  const fee = D.set.fee || 300, who = b.name + '　' + md(b.date) + '　' + rng(b);
+  let charge = true;
+  if (window.confirm) {
+    if (!confirm('臨時取消／未到\n' + who + '\n\n按「確定」：標示為未到，下一次預約自動加收 ' + fee + ' 元。\n按「取消」：再選擇是否改成不加收。')) {
+      if (!confirm('改成「未到、不加收」嗎？\n' + who)) return;
+      charge = false;
+    }
+  }
+  act(() => api('noShow', { id, charge }), r => charge ? ('已標示未到。' + (r.note || '')) : '已標示未到（不加收）');
+}
+function undoNoShow(id) {
+  const b = D.books.find(x => x.id === id); if (!b) return;
+  if (window.confirm && !confirm('要取消「未到」，改回預約嗎？\n' + b.name + '　' + md(b.date) + '　' + rng(b) + '\n（已標註的加收會一併取消）')) return;
+  act(() => api('setStatus', { id, status: '已確認', reason: '' }), () => '已改回預約');
+}
 const doneBtn = b => {
   if (b.status === '已完成') return canEdit() ? '<button class="dn on" onclick="undoDone(\'' + b.id + '\')">✔已完成</button>' : '<b style="color:var(--main-d)">✔</b>';
   if ((b.status === '已確認' || b.status === '待確認') && canEdit()) return '<button class="dn" onclick="markDone(\'' + b.id + '\')">完成</button>';
@@ -672,7 +698,7 @@ function dayCard(d, extra) {
           const leave = b.status === '當日請假';
           if (toMin(b.time) >= a) {
             who += '<div class="who' + (leave ? ' leave' : '') + '">' + nameTap(b) + ' <span class="hint">' + rng(b) + '</span><br>' + priceBadge(b) + contactOf(b) + badges(b) + '</div>';
-            tc += '<div>' + (leave ? '✔<div class="hint">' + esc(b.fee || '') + '</div>' : '') + '</div>';
+            tc += '<div>' + noShowCell(b) + '</div>';
             pd += '<div>' + doneBtn(b) + '</div>';
           } else who += '<div class="who cont">↳ ' + esc(b.name) + '（續到 ' + endOf(b) + '）</div>';
         });
@@ -690,7 +716,7 @@ function renderRoster() {
   const t = today(), wk = weekDays(0), ym = t.slice(0, 7);
   const inRange = b => shRange === 'today' ? b.date === t : shRange === 'week' ? (b.date >= wk[0] && b.date <= wk[4]) : shRange === 'month' ? b.date.slice(0, 7) === ym : true;
   const list = D.books.filter(inRange).sort(byDT);
-  const act2 = list.filter(b => SHOWN.includes(b.status) && b.status !== '當日請假');
+  const act2 = list.filter(b => SHOWN.includes(b.status));
   const cnt = { n: act2.length, leave: list.filter(b => b.status === '當日請假').length, cancel: list.filter(b => b.status === '已取消' || b.status === '已婉拒').length, extra: list.filter(b => b.extra && SHOWN.includes(b.status)).length, done: act2.filter(b => b.status === '已完成').length };
   const rg = [['today', '今天'], ['week', '本週'], ['month', '本月'], ['all', '全部']];
   let h = '<div class="chips">' + rg.map(([k, l]) => '<button class="chip ' + (shRange === k ? 'on' : '') + '" onclick="shRange=\'' + k + '\';render()">' + l + '</button>').join('') + '</div>';
@@ -700,7 +726,7 @@ function renderRoster() {
   list.forEach(b => {
     const dead = b.status === '已取消' || b.status === '已婉拒';
     const hist = [b.history ? '改期：' + b.history : '', b.leaveReason ? '請假：' + b.leaveReason : '', b.note].filter(Boolean).join('；');
-    const st = canEdit() ? '<select onchange="setStatus(\'' + b.id + '\',this.value)">' + STATUS.map(s => '<option' + (s === b.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' : '<span class="badge st-' + b.status + '">' + b.status + '</span>';
+    const st = canEdit() ? '<select onchange="setStatus(\'' + b.id + '\',this.value)">' + (b.status === '待確認' ? '<option selected value="待確認">待確認</option>' : '') + ST_OPT.map(o => '<option value="' + o[0] + '"' + (o[0] === stGroup(b.status) && b.status !== '待確認' ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>' : '<span class="badge st-' + b.status + '">' + stLabel(b.status) + '</span>';
     h += '<tr class="' + (dead ? 'dead' : '') + '"><td>' + md(b.date) + '（' + wdOf(b.date) + '）</td><td>' + rng(b) + '</td><td style="white-space:nowrap">' + nameTap(b) + '<br>' + priceBadge(b) + '</td><td>' + contactOf(b) + '</td><td>' + st + '</td>' +
       '<td class="c">' + (b.status === '當日請假' ? '✔ ' + esc(b.fee || '') : '') + '</td><td style="color:#c0392b">' + esc(b.extra || '') + '</td>' +
       '<td class="hint">' + esc(hist) + '</td><td class="hint" style="white-space:nowrap">' + esc(b.updated || '') + '</td>' + (canEdit() ? '<td class="c"><button class="delb" onclick="delBook(\'' + b.id + '\')" title="刪除這筆預約">🗑</button></td>' : '') + '</tr>';
