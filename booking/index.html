@@ -188,6 +188,8 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .ftbl th:nth-child(3),.ftbl th:nth-child(4){width:56px}
 .ftbl td.c>div{min-height:22px}
 .ftbl tr.closed td{background:#f1eee8}
+.dn{border:1px solid var(--main);background:#fff;color:var(--main-d);border-radius:14px;padding:3px 6px;font-size:12px;font-family:inherit;line-height:1.2;white-space:nowrap}
+.dn.on{background:var(--main);color:#fff}
 .ftbl input[type=checkbox]{width:18px;height:18px}
 .who{margin:2px 0}
 .who.leave b{text-decoration:line-through;color:#a1452f}
@@ -594,6 +596,17 @@ function badges(b) {
   return x;
 }
 const paidBox = b => '<input type="checkbox" ' + (b.paid ? 'checked' : '') + (canEdit() ? ' onclick="setPaid(\'' + b.id + '\',this.checked)"' : ' disabled') + '>';
+const doneBtn = b => {
+  if (b.status === '已完成') return canEdit() ? '<button class="dn on" onclick="undoDone(\'' + b.id + '\')">✔已完成</button>' : '<b style="color:var(--main-d)">✔</b>';
+  if ((b.status === '已確認' || b.status === '待確認') && canEdit()) return '<button class="dn" onclick="markDone(\'' + b.id + '\')">完成</button>';
+  return '';
+};
+function markDone(id) { act(() => api('setStatus', { id, status: '已完成', reason: '' }), () => '已標示本次諮商完成'); }
+function undoDone(id) {
+  const b = D.books.find(x => x.id === id); if (!b) return;
+  if (window.confirm && !confirm('要取消「已完成」嗎？\n' + b.name + '　' + md(b.date) + '　' + rng(b))) return;
+  act(() => api('setStatus', { id, status: '已確認', reason: '' }), () => '已改回「已確認」');
+}
 function setPaid(id, v) { act(() => api('paid', { id, value: v })); }
 
 /* ---- 收費（只有工作人員看得到） ---- */
@@ -650,7 +663,7 @@ function dayCard(d, extra) {
     const secs = daySections(d);
     if (!secs.length) h += '<div class="hint">休診</div>';
     secs.forEach(sec => {
-      h += '<table class="ftbl"><tr><th>時段</th><th>個案</th><th>臨時<br>取消</th><th>諮商師<br>已領</th></tr>';
+      h += '<table class="ftbl"><tr><th>時段</th><th>個案</th><th>臨時<br>取消</th><th>本次<br>完成</th></tr>';
       sec.h.forEach(hr => {
         const a = hr * 60, e = a + 60;
         const list = D.books.filter(b => b.date === d && SHOWN.includes(b.status) && toMin(b.time) < e && toMin(b.time) + b.dur > a).sort(byDT);
@@ -662,7 +675,7 @@ function dayCard(d, extra) {
           if (toMin(b.time) >= a) {
             who += '<div class="who' + (leave ? ' leave' : '') + '">' + nameTap(b) + ' <span class="hint">' + rng(b) + '</span><br>' + priceBadge(b) + contactOf(b) + badges(b) + '</div>';
             tc += '<div>' + (leave ? '✔<div class="hint">' + esc(b.fee || '') + '</div>' : '') + '</div>';
-            pd += '<div>' + paidBox(b) + '</div>';
+            pd += '<div>' + doneBtn(b) + '</div>';
           } else who += '<div class="who cont">↳ ' + esc(b.name) + '（續到 ' + endOf(b) + '）</div>';
         });
         blk.forEach(x => { who += '<div class="who cont">🔒 諮商師保留 ' + x.time + '～' + m2t(toMin(x.time) + +x.dur) + '</div>'; });
