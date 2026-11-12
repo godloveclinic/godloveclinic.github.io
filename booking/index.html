@@ -455,6 +455,7 @@ function closeOrBack() {   // 先回到「我的預約」，再嘗試關閉視�
   try { if (window.liff && liff.isInClient()) liff.closeWindow(); } catch (e) { }
 }
 
+const LEGEND_MY = () => LEGEND.replace('</div>', '<span><i style="background:#f3c76b"></i>我的預約</span></div>');
 const LEGEND = '<div class="legend"><span><i style="background:#3f9d5d"></i>可預約</span><span><i style="background:#d9443a"></i>已被預約</span><span><i style="background:#dcd8d2"></i>未開放</span></div>';
 function renderBook() {
   let h = '';
@@ -474,12 +475,13 @@ function renderBook() {
   }).join('') + '</div></div>';
   const multi = durOptions().length > 1;
   if (multi) h += '<div class="card"><p class="step">② 預約多久</p><div class="durs">' + durOptions().map(m => '<button class="' + (L.dur === m ? 'on' : '') + '" onclick="L.dur=' + m + ';render()">' + durTxt(m) + '</button>').join('') + '</div></div>';
-  h += '<div class="card"><p class="step">' + (multi ? '③' : '②') + ' 選擇開始時間</p>' + LEGEND + '';
+  h += '<div class="card"><p class="step">' + (multi ? '③' : '②') + ' 選擇開始時間</p>' + (rb ? LEGEND_MY() : LEGEND) + '';
   daySections(L.date).forEach(sec => {
     h += '<div class="sec"><div class="sn">' + sec.n + '</div><div class="sgrid">';
     sectionStarts(sec).forEach(m => {
       const st = slotState(L.date, m, L.dur, ign), ok = st === 'ok';
-      h += '<button class="sl ' + (ok ? 'ok' : st === 'busy' ? 'busy' : 'no') + (L.start === m ? ' on' : '') + '" ' + (ok ? 'onclick="L.start=' + m + ';L.err=\'\';render()"' : 'disabled') + '>' + m2t(m) + '<small>～' + m2t(m + L.dur) + '</small></button>';
+      const mine = rb && L.date === rb.date && m >= toMin(rb.time) && m < toMin(rb.time) + rb.dur;   // 改期時，原本預約的時段標黃色
+      h += '<button class="sl ' + (ok ? 'ok' : st === 'busy' ? 'busy' : 'no') + (mine ? ' orig' : '') + (L.start === m ? ' on' : '') + '" ' + (ok ? 'onclick="L.start=' + m + ';L.err=\'\';render()"' : 'disabled') + '>' + m2t(m) + '<small>～' + m2t(m + L.dur) + '</small></button>';
     });
     h += '</div></div>';
   });
