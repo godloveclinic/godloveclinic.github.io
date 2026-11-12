@@ -328,6 +328,9 @@ const okCount = (d, dur, ign) => { let n = 0; daySections(d).forEach(s => sectio
 const durOptions = () => { const a = []; for (let m = 60; m <= D.set.maxDur; m += 30) a.push(m); return a; };
 const canChange = b => today() < b.date;
 const canLeave = b => b.date === today() && nowMs() < slotT(b.date, endOf(b));
+const finishAt = b => slotT(b.date, b.time) + b.dur * 30000;   // 諮商進行到一半才開放
+const canFinish = b => (b.status === '已確認' || b.status === '待確認') && b.date === today() && nowMs() >= finishAt(b);
+const finishWait = b => (b.status === '已確認' || b.status === '待確認') && b.date === today() && nowMs() < finishAt(b);
 const isStaff = () => D && ['諮商師', '診所', '代班'].includes(D.role);
 const canEdit = () => D && ['諮商師', '診所'].includes(D.role);
 
@@ -415,7 +418,7 @@ function render() {
 }
 
 /* ================= 個案 ================= */
-const L = { tab: 'book', date: null, start: null, dur: 60, fd: null, err: '', done: null, sure: {}, resched: null, leave: null, reason: '' };
+const L = { tab: 'book', date: null, start: null, dur: 60, fd: null, err: '', done: null, sure: {}, resched: null, leave: null, reason: '', next: false };
 
 function renderClient() {
   if (!L.fd) L.fd = { name: D.me.name || profileName || '', note: '' };
@@ -435,6 +438,7 @@ function renderBook() {
   let h = '';
   const rb = L.resched ? D.mine.find(b => b.id === L.resched) : null, ign = rb ? rb.id : null;
   if (rb) h += '<div class="card" style="background:#fbf1dc"><b>🔄 改期中</b><div class="hint" style="margin:4px 0 8px">原本：' + whenTxt(rb) + '<br>請選擇新的時段</div><button class="btn ghost sm" onclick="L.resched=null;L.tab=\'mine\';render()">不改了</button></div>';
+  if (L.next) h += '<div class="card" style="background:#fff0f2"><b>✅ 本次諮商已完成</b><div class="hint" style="margin:4px 0 8px">請選擇下一次的時間，送出後就約好了。</div><button class="btn ghost sm" onclick="L.next=false;L.tab=\'mine\';render()">之後再約</button></div>';
   const myN = D.mine.filter(b => b.status === '待確認' || b.status === '已確認').length;
   if (!rb && myN >= (D.set.maxN || 1)) return h + '<div class="card" style="text-align:center"><b>您已經有一筆預約了</b><div class="hint" style="margin:6px 0 10px">為了讓更多人都能預約到時段，每人同時只能預約 ' + (D.set.maxN || 1) + ' 次。<br>要換時間請到「我的預約」按「改期」。</div><button class="btn" onclick="L.tab=\'mine\';render()">看我的預約</button></div>';
   const ds = bookDates();
@@ -480,7 +484,7 @@ function renderMine() {
     else if (canChange(b)) {
       h += '<div class="rowbtn"><button class="btn ghost sm" onclick="startResched(\'' + b.id + '\')">改期</button>' +
         '<button class="cancel ' + (L.sure[b.id] ? 'sure' : '') + '" style="flex:1" onclick="doCancel(\'' + b.id + '\')">' + (L.sure[b.id] ? '確定取消？' : '取消預約') + '</button></div>';
-    } else if (canLeave(b)) {
+    } else if (canLeave(b) && !canFinish(b)) {
       if (L.leave === b.id) {
         h += '<div style="margin-top:10px"><label>請假原因（必填）</label><textarea class="f" rows="2" maxlength="100" oninput="L.reason=this.value" placeholder="請簡單說明原因">' + esc(L.reason) + '</textarea>' +
           '<p class="hint">若當天才通知請假或改期，將會另外酌收 ' + D.set.fee + ' 元。</p>' +
@@ -488,6 +492,10 @@ function renderMine() {
       } else {
         h += '<p class="hint" style="margin:8px 0">今天是預約當天，無法取消或改期，如無法前來請按「請假」。</p><button class="btn ghost sm" style="width:100%" onclick="L.leave=\'' + b.id + '\';L.reason=\'\';render()">請假</button>';
       }
+    }
+    if (finishWait(b)) h += '<p class="hint" style="margin:10px 0 0">🔒 諮商進行到一半（' + m2t(Math.round((finishAt(b) - slotT(b.date, '00:00')) / 60000)) + '）之後，這裡會出現「約下一次」按鈕。</p>';
+    if (canFinish(b)) {
+      h += '<div style="margin-top:10px"><button class="btn" style="width:100%" onclick="doFinish(\'' + b.id + '\')">' + (L.sure['f' + b.id] ? '確定本次已完成？再按一次，開始選下一次' : '✅ 本次諮商完成，約下一次') + '</button><p class="hint" style="margin:6px 0 0">按下後這次會標示為「已完成」，接著選擇下一次的時間。</p></div>';
     }
     h += '</div>';
   });
@@ -504,7 +512,7 @@ async function doBook() {
     const r = await api('book', f);
     say('【預約】' + when + '\n姓名：' + f.name + (f.note ? '\n備註：' + f.note : ''));
     L.done = { ic: r.status === '已確認' ? '✅' : '🙏', title: r.status === '已確認' ? '預約完成' : '已收到您的預約', sub: when + '<br>' + (r.status === '已確認' ? '期待與您見面' : esc(D.set.who) + '確認後會用 LINE 通知您') };
-    L.err = ''; L.start = null; L.fd.note = '';
+    L.err = ''; L.start = null; L.fd.note = ''; L.next = false;
     busyReq = false; await load(r.state);
   } catch (e) { busyReq = false; L.err = e.message; await load().catch(() => render()); scrollTo(0, 0); }
 }
@@ -518,6 +526,20 @@ async function doResched() {
     say('【改期】原 ' + r.old + '\n→ 新 ' + nw);
     L.done = { ic: '🔄', title: '改期完成', sub: '新時間：' + nw }; L.resched = null; L.err = '';
     busyReq = false; await load(r.state);
+  } catch (e) { busyReq = false; L.err = e.message; await load().catch(() => render()); scrollTo(0, 0); }
+}
+async function doFinish(id) {
+  const k = 'f' + id;
+  if (!L.sure[k]) { L.sure[k] = true; render(); setTimeout(() => { L.sure[k] = false; render(); }, 5000); return; }
+  L.sure[k] = false;
+  const b = D.mine.find(x => x.id === id);
+  busyReq = true; render();
+  try {
+    const r = await api('finishNext', { id });
+    L.next = true; L.tab = 'book'; L.resched = null; L.start = null; L.err = '';
+    L.date = addDays(b.date, 7); L.dur = b.dur;
+    if (!L.fd.name) L.fd.name = b.name;
+    busyReq = false; await load(r.state); scrollTo(0, 0);
   } catch (e) { busyReq = false; L.err = e.message; await load().catch(() => render()); scrollTo(0, 0); }
 }
 async function doCancel(id) {
@@ -750,11 +772,17 @@ function renderCoList() {
   list.forEach(b => {
     h += '<div class="card"><div class="bk"><div class="info"><b>' + whenTxt(b) + '</b><div>' + nameTap(b) + ' ' + priceBadge(b) + (b.note ? '<span class="hint">　' + esc(b.note) + '</span>' : '') + '</div>' +
       (b.offer ? '<div class="hint" style="color:#a67a1f">⏳ 已請個案改時間，等待個案選擇</div>' : '') + '</div>' +
-      (CO.id === b.id ? '' : '<button class="btn ghost sm" onclick="openCO(\'' + b.id + '\')">請個案<br>改時間</button>') + '</div>';
+      (CO.id === b.id ? '' : '<div style="display:flex;gap:6px"><button class="btn sm" onclick="renewFrom(\'' + b.id + '\')">續約<br>下一次</button><button class="btn ghost sm" onclick="openCO(\'' + b.id + '\')">請個案<br>改時間</button></div>') + '</div>';
     if (CO.id === b.id) h += coEditor(b);
     h += '</div>';
   });
   return h;
+}
+function renewFrom(id) {   // 續約：帶入這位個案的資料，預設下週同一天同一時段，直接到「電話預約」選時間
+  const b = D.books.find(x => x.id === id); if (!b) return;
+  const c = (D.clients || []).find(x => x.uid === b.uid) || {};
+  AD = { start: toMin(b.time), dur: b.dur, uid: '', from: b.uid ? b.id : '', name: b.name || '', phone: b.phone || c.phone || '', price: b.price || c.price || '' };
+  DK = addDays(b.date, 7); stab = 'add'; render(); scrollTo(0, 0); toast('已帶入 ' + (b.name || '') + ' 的資料，確認時間後按「新增預約」');
 }
 function openCO(id) { CO.id = id; CO.reason = ''; CO.opts = []; CO.d = null; render(); }
 function optProblem(b, o) {
@@ -852,14 +880,14 @@ function renderAdd() {
   return h;
 }
 function adPickLine(sel) {
-  const o = sel.selectedOptions[0]; AD.uid = sel.value;
+  const o = sel.selectedOptions[0]; AD.uid = sel.value; AD.from = '';
   if (o && o.dataset.n) AD.name = o.dataset.n;
   if (o && o.dataset.p) AD.price = o.dataset.p;
   if (o && o.dataset.t && !AD.phone) AD.phone = o.dataset.t;
   render();
 }
 async function deskAdd() {
-  const f = { date: DK, start: AD.start, dur: AD.dur, uid: AD.uid, name: AD.name.trim(), phone: AD.phone, price: AD.price };
+  const f = { date: DK, start: AD.start, dur: AD.dur, uid: AD.uid, from: AD.from || '', name: AD.name.trim(), phone: AD.phone, price: AD.price };
   if (AD.start == null) return toast('請先選擇時段');
   if (!f.name) return toast('請填寫姓名');
   const r = await act(() => api('deskAdd', f), r => [r.clash ? '⚠ 這個時段和其他預約重疊了，請再確認！' : '', r.closed ? '⚠ 這段時間沒有開放，請確認諮商師可以' : '', r.viaLine ? '已用 LINE 通知個案' : '這位個案沒有 LINE，請另外通知'].filter(Boolean).join('\n'));
