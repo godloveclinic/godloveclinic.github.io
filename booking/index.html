@@ -183,7 +183,7 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .ftbl{width:100%;border-collapse:collapse;font-size:13px;border:1.5px solid #3d3a35}
 .ftbl th{background:#fff35c;padding:5px 4px;font-weight:700;border:1px solid #3d3a35;font-size:12px;line-height:1.2}
 .ftbl td{border:1px solid #bdb5a6;padding:5px;vertical-align:middle}
-.ftbl td.tl{width:48px;text-align:center;font-weight:700;font-size:15px}
+.ftbl td.tl{text-align:center;font-weight:700}
 .ftbl td.c{width:56px;text-align:center}
 .ftbl th:nth-child(3),.ftbl th:nth-child(4){width:56px}
 .ftbl td.c>div{min-height:22px}
@@ -201,6 +201,15 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .pill{display:inline-block;font-size:10px;border-radius:8px;padding:1px 6px;margin:2px 3px 0 0}
 .pill.red{background:#fbe2dd;color:#a1452f}
 .pill.gold{background:#fbf1dc;color:#8a5a00}
+.pill.done{background:#e1ecf7;color:#2f5f8f}
+.ftbl td.tl{width:58px;padding:6px 2px;font-size:15px;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:.2px;white-space:nowrap}
+.ftbl td.tl i{display:block;font-style:normal;color:#9a948a;font-size:12px;line-height:1}
+.who.tapme{cursor:pointer}
+.who .mini{margin-top:2px;font-size:13px}
+.dtbox{max-height:90vh;overflow-y:auto}
+.dtbox .row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.dtbox .row span:first-child{color:#8a847a;white-space:nowrap}
+.dtbox .acts{margin:12px 0 4px}
 .pr{display:inline-block;font-size:11px;font-weight:700;border-radius:8px;padding:1px 7px;margin:2px 3px 0 0;white-space:nowrap}
 .pr.p0{background:#dff1e3;color:#2e7d43}.pr.p1{background:#dde9fb;color:#2459a8}.pr.p2{background:#fde6d2;color:#b4560f}.pr.p3{background:#ece2f7;color:#6b3fa0}
 .pr.none{background:#eee;color:#888;font-weight:400}
@@ -424,6 +433,7 @@ function render() {
   document.getElementById('sub').textContent = isStaff() ? (D.role === '代班' ? '今日代班｜預約表' : D.role + '｜預約管理') : '線上預約';
   $app().innerHTML = (STALE ? '<div class="stale"><div class="spin"></div>正在更新最新資料…</div>' : '') + (isStaff() ? renderStaff() : renderClient());
   document.querySelectorAll('.dates, .scroll').forEach((e, i) => { if (keep[i]) e.scrollLeft = keep[i]; });
+  if (typeof DT !== 'undefined' && DT) drawDT();
 }
 
 /* ================= 個案 ================= */
@@ -602,6 +612,8 @@ function weekDays(off) {
   for (let i = 0; i < 5; i++) a.push(dstr(mon + i * 864e5));
   return a;
 }
+const pad2 = n => String(n).padStart(2, '0');
+const tlLabel = h => pad2(h) + ':00<i>│</i>' + pad2(h + 1) + ':00';
 const hLabel = h => { const f = x => x > 12 ? x - 12 : x; return f(h) + '-' + f(h + 1); };
 const contactOf = b => b.phone ? esc(b.phone) : (b.uid ? '<span class="hint">LINE 預約</span>' : '');
 function badges(b) {
@@ -619,6 +631,39 @@ const noShowCell = b => {
   return '';
 };
 const laterOf = b => D.books.find(x => x.id !== b.id && ACTIVE.includes(x.status) && (x.date + x.time) > (b.date + b.time) && x.name === b.name);
+const gridNote = b => {
+  let x = '';
+  if (b.extra) x += '<span class="pill red">' + esc(b.extra) + '</span>';
+  if (b.status === '待確認') x += '<span class="pill gold">待確認</span>';
+  if (isOut(b)) x += '<span class="pill red">臨時取消' + (b.fee ? '・' + esc(b.fee) : '') + '</span>';
+  if (b.status === '已完成') x += '<span class="pill done">✔ 已完成</span>';
+  return x ? '<div class="mini">' + x + '</div>' : '';
+};
+/* ---- 個案詳細（點預約表的個案跳出，按鈕操作都在這裡） ---- */
+let DT = null;
+function openDT(id) { DT = id; drawDT(); }
+function closeDT() { DT = null; CO.id = null; const m = document.getElementById('dt'); if (m) m.remove(); }
+function drawDT() {
+  let m = document.getElementById('dt');
+  const b = DT && D && D.books && D.books.find(x => x.id === DT);
+  if (!b) { if (m) m.remove(); DT = null; return; }
+  const old = m && m.querySelector('.dtbox');
+  const top = old ? old.scrollTop : 0;
+  if (!m) { m = document.createElement('div'); m.id = 'dt'; m.className = 'mask'; m.onclick = e => { if (e.target === m) closeDT(); }; document.body.appendChild(m); }
+  const row = (k, v) => v ? '<div class="row"><span>' + k + '</span><span style="text-align:right">' + v + '</span></div>' : '';
+  m.innerHTML = '<div class="sheetbox dtbox"><div style="display:flex;justify-content:space-between;align-items:center"><h3>' + esc(b.name) + '</h3><button class="dn" onclick="closeDT()">✕ 關閉</button></div>' +
+    row('時間', md(b.date) + '（' + wdOf(b.date) + '）' + rng(b) + '（' + durTxt(b.dur) + '）') +
+    row('狀態', stLabel(b.status) + (b.status === '待確認' ? '（待確認）' : '')) +
+    row('電話／來源', b.phone ? esc(b.phone) : (b.uid ? 'LINE 預約' : '')) +
+    '<div class="row"><span>收費</span><span style="text-align:right">' + priceBadge(b) + ' <button class="dn" onclick="pricePick(\'' + b.id + '\')">修改</button></span></div>' +
+    row('加收', b.extra ? '<span style="color:#c0392b">' + esc(b.extra) + '</span>' : '') +
+    row('臨時取消', isOut(b) ? esc((b.leaveReason || '') + (b.fee ? '　' + b.fee : '')) : '') +
+    row('備註', b.note ? esc(b.note) : '') +
+    row('改期紀錄', b.history ? esc(b.history) : '') +
+    (b.offer ? '<div class="hint" style="color:#a67a1f;margin-top:6px">⏳ 已請個案改時間，等待個案選擇</div>' : '') +
+    '<div class="acts">' + actBtns(b) + '</div>' + (CO.id === b.id ? coEditor(b) : '') + '</div>';
+  m.querySelector('.dtbox').scrollTop = top;
+}
 function actBtns(b) {
   const id = b.id;
   if (!canEdit()) return b.status === '已完成' ? '<b style="color:var(--main-d)">✔ 已完成</b>' : isOut(b) ? '✔ 未到' + (b.fee ? ' <span class="hint">' + esc(b.fee) + '</span>' : '') : '';
@@ -719,7 +764,7 @@ function dayCard(d, extra) {
     const secs = daySections(d);
     if (!secs.length) h += '<div class="hint">休診</div>';
     secs.forEach(sec => {
-      h += '<table class="ftbl"><tr><th>時段</th><th>個案與操作</th></tr>';
+      h += '<table class="ftbl"><tr><th>時段</th><th>個案</th></tr>';
       sec.h.forEach(hr => {
         const a = hr * 60, e = a + 60;
         const list = D.books.filter(b => b.date === d && SHOWN.includes(b.status) && toMin(b.time) < e && toMin(b.time) + b.dur > a).sort(byDT);
@@ -729,12 +774,13 @@ function dayCard(d, extra) {
         list.forEach(b => {
           const leave = b.status === '當日請假';
           if (toMin(b.time) >= a) {
-            who += '<div class="who' + (leave ? ' leave' : '') + '">' + nameTap(b) + ' <span class="hint">' + rng(b) + '</span><br>' + priceBadge(b) + contactOf(b) + badges(b) + (b.offer ? '<div class="hint" style="color:#a67a1f">⏳ 已請個案改時間，等待個案選擇</div>' : '') + '<div class="acts">' + actBtns(b) + '</div>' + (CO.id === b.id ? coEditor(b) : '') + '</div>';
+            const tm = (toMin(b.time) % 60 || b.dur !== 60) ? ' <span class="hint">' + rng(b) + '</span>' : '';
+            who += '<div class="who' + (leave ? ' leave' : '') + (canEdit() ? ' tapme' : '') + '"' + (canEdit() ? ' onclick="openDT(\'' + b.id + '\')"' : '') + '><b>' + esc(b.name) + '</b>' + tm + '<div class="mini">' + contactOf(b) + ' ' + priceBadge(b) + '</div>' + gridNote(b) + '</div>';
           } else who += '<div class="who cont">↳ ' + esc(b.name) + '（續到 ' + endOf(b) + '）</div>';
         });
         blk.forEach(x => { who += '<div class="who cont">🔒 諮商師保留 ' + x.time + '～' + m2t(toMin(x.time) + +x.dur) + '</div>'; });
         if (!who) who = '<span class="hint">' + (open ? '' : '未開放') + '</span>';
-        h += '<tr class="' + (open ? '' : 'closed') + '"><td class="tl">' + hLabel(hr) + '</td><td class="who-c">' + who + '</td></tr>';
+        h += '<tr class="' + (open ? '' : 'closed') + '"><td class="tl">' + tlLabel(hr) + '</td><td class="who-c">' + who + '</td></tr>';
       });
       h += '</table>';
     });
@@ -845,7 +891,8 @@ function renderCoList() {
   });
   return h;
 }
-function renewFrom(id) {   // 續約：帶入這位個案的資料，預設下週同一天同一時段，直接到「電話預約」選時間
+function renewFrom(id) {
+  closeDT();   // 續約：帶入這位個案的資料，預設下週同一天同一時段，直接到「電話預約」選時間
   const b = D.books.find(x => x.id === id); if (!b) return;
   const c = (D.clients || []).find(x => x.uid === b.uid) || {};
   AD = { start: toMin(b.time), dur: b.dur, uid: '', from: b.uid ? b.id : '', name: b.name || '', phone: b.phone || c.phone || '', price: b.price || c.price || '' };
