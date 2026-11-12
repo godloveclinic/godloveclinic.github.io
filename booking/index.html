@@ -450,7 +450,10 @@ function renderClient() {
   if (L.err) h += '<div class="err">' + esc(L.err) + '</div>';
   return h + (L.tab === 'book' ? renderBook() : renderMine());
 }
-function closeOrBack() { L.done = null; L.tab = 'mine'; if (window.liff && liff.isInClient()) liff.closeWindow(); else render(); }
+function closeOrBack() {   // 先回到「我的預約」，再嘗試關閉視窗（關不掉時至少畫面有反應）
+  L.done = null; L.tab = 'mine'; render(); scrollTo(0, 0);
+  try { if (window.liff && liff.isInClient()) liff.closeWindow(); } catch (e) { }
+}
 
 const LEGEND = '<div class="legend"><span><i style="background:#3f9d5d"></i>可預約</span><span><i style="background:#d9443a"></i>已被預約</span><span><i style="background:#dcd8d2"></i>未開放</span></div>';
 function renderBook() {
