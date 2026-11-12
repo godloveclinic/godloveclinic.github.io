@@ -770,7 +770,7 @@ function renderCoList() {
   if (!list.length) return '<div class="card hint" style="text-align:center">目前沒有預約</div>';
   let h = '';
   list.forEach(b => {
-    h += '<div class="card"><div class="bk"><div class="info"><b>' + whenTxt(b) + '</b><div>' + nameTap(b) + ' ' + priceBadge(b) + (b.note ? '<span class="hint">　' + esc(b.note) + '</span>' : '') + '</div>' +
+    h += '<div class="card"><div class="bk"><div class="info"><b>' + whenTxt(b) + '</b><div>' + nameTap(b) + ' ' + priceBadge(b) + (b.phone ? ' <span class="hint">' + esc(b.phone) + '</span>' : '') + (b.note ? '<span class="hint">　' + esc(b.note) + '</span>' : '') + '</div>' +
       (b.offer ? '<div class="hint" style="color:#a67a1f">⏳ 已請個案改時間，等待個案選擇</div>' : '') + '</div>' +
       (CO.id === b.id ? '' : '<div style="display:flex;gap:6px"><button class="btn sm" onclick="renewFrom(\'' + b.id + '\')">續約<br>下一次</button><button class="btn ghost sm" onclick="openCO(\'' + b.id + '\')">請個案<br>改時間</button></div>') + '</div>';
     if (CO.id === b.id) h += coEditor(b);
