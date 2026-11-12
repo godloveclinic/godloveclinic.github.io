@@ -205,6 +205,9 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .ftbl td.tl{width:58px;padding:6px 2px;font-size:15px;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:.2px;white-space:nowrap}
 .ftbl td.tl i{display:block;font-style:normal;color:#9a948a;font-size:12px;line-height:1}
 .who.tapme{cursor:pointer}
+.qa{width:100%;border:1.5px dashed #6fbf8a;background:#f3fbf5;color:#2f7d4a;border-radius:9px;padding:7px 0;font-size:13px;font-weight:700}
+.seg{display:flex;gap:6px;margin:6px 0}.seg button{flex:1;border:1.5px solid var(--line);border-radius:10px;padding:8px 0;background:#fff}.seg button.on{border-color:var(--main);background:var(--soft);color:var(--main-d);font-weight:700}
+.durs button:disabled{background:#eee9e1;color:#a8a296}
 .who .mini{margin-top:2px;font-size:13px}
 .dtbox{max-height:90vh;overflow-y:auto}
 .dtbox .row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px}
@@ -792,7 +795,7 @@ function dayCard(d, extra) {
           } else who += '<div class="who cont">↳ ' + esc(b.name) + '（續到 ' + endOf(b) + '）</div>';
         });
         blk.forEach(x => { who += '<div class="who cont">🔒 諮商師保留 ' + x.time + '～' + m2t(toMin(x.time) + +x.dur) + '</div>'; });
-        if (!who) who = '<span class="hint">' + (open ? '' : '未開放') + '</span>';
+        if (!who) who = (open && canEdit() && slotT(d, m2t(a)) > nowMs()) ? '<button class="qa" onclick="openQA(\'' + d + '\',' + a + ')">＋ 預約</button>' : '<span class="hint">' + (open ? '' : '未開放') + '</span>';
         h += '<tr class="' + (open ? '' : 'closed') + '"><td class="tl">' + tlLabel(hr) + '</td><td class="who-c">' + who + '</td></tr>';
       });
       h += '</table>';
@@ -962,6 +965,60 @@ async function sendOffer() {
   const r = await act(() => api('offer', { id: CO.id, opts: CO.opts, reason: CO.reason.trim() }), r => r.viaLine ? '已傳給個案，等待個案選擇（同時通知診所）' : '這位個案沒有 LINE，已通知診所，請電話聯絡');
   if (r) CO.id = null;
   render();
+}
+
+/* ---- 預約表空白格：點一下快速預約 ---- */
+let QA = null;
+function qaPeople() {
+  const m = {};   // 以姓名合併；預約裡的 uid 只是有無 LINE 的標記，真正的 LINE 編號只來自個案名單
+  (D.clients || []).forEach(c => { const k = String(c.name || '').trim(); if (k) m[k] = { uid: c.uid, name: k, phone: c.phone || '', price: c.price || '' }; });
+  D.books.slice().sort(byDT).forEach(b => {
+    const k = String(b.name || '').trim(); if (!k) return;
+    const o = m[k] || (m[k] = { uid: '', name: k, phone: '', price: '' });
+    if (b.phone) o.phone = b.phone;
+    if (b.price) o.price = b.price;
+  });
+  return Object.keys(m).map(k => m[k]).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
+}
+function openQA(d, start) { QA = { d, start, dur: 60, mode: 'old', pick: '', name: '', phone: '', price: '' }; drawQA(); }
+function closeQA() { QA = null; const m = document.getElementById('qa'); if (m) m.remove(); }
+function qaPick(i) {
+  QA.pick = i; const o = qaPeople()[i];
+  if (o) { QA.name = o.name; QA.phone = o.phone; QA.price = o.price; }
+  drawQA();
+}
+function drawQA() {
+  if (!QA) return;
+  let m = document.getElementById('qa');
+  if (!m) { m = document.createElement('div'); m.id = 'qa'; m.className = 'mask'; m.onclick = e => { if (e.target === m) closeQA(); }; document.body.appendChild(m); }
+  const q = QA, top = m.querySelector('.sheetbox') ? m.querySelector('.sheetbox').scrollTop : 0;
+  const durs = []; for (let x = 60; x <= Math.max(120, D.set.maxDur); x += 30) durs.push(x);
+  if (staffState(q.d, q.start, q.dur) !== 'ok') q.dur = 60;
+  const ppl = qaPeople();
+  let h = '<div class="sheetbox dtbox"><div style="display:flex;justify-content:space-between;align-items:center"><h3>快速預約</h3><button class="dn" onclick="closeQA()">✕ 關閉</button></div>' +
+    '<div class="summary">' + md(q.d) + '（週' + wdOf(q.d) + '）' + m2t(q.start) + '～' + m2t(q.start + q.dur) + '（' + durTxt(q.dur) + '）</div>' +
+    '<label>預約多久</label><div class="durs">' + durs.map(x => '<button class="' + (q.dur === x ? 'on' : '') + '" ' + (staffState(q.d, q.start, x) === 'ok' ? '' : 'disabled') + ' onclick="QA.dur=' + x + ';drawQA()">' + durTxt(x) + '</button>').join('') + '</div>' +
+    '<label>個案</label><div class="seg"><button class="' + (q.mode === 'old' ? 'on' : '') + '" onclick="QA.mode=\'old\';drawQA()">舊案</button><button class="' + (q.mode === 'new' ? 'on' : '') + '" onclick="QA.mode=\'new\';QA.pick=\'\';QA.name=\'\';QA.phone=\'\';QA.price=\'\';drawQA()">新個案</button></div>';
+  if (q.mode === 'old') {
+    h += '<select class="f" onchange="qaPick(this.value)"><option value="">請選擇個案</option>' + ppl.map((o, i) => '<option value="' + i + '"' + (String(q.pick) === String(i) ? ' selected' : '') + '>' + esc(o.name) + (o.phone ? '　' + esc(o.phone) : '') + '</option>').join('') + '</select>';
+    if (q.pick !== '') h += '<div class="row"><span>電話</span><span>' + (q.phone ? esc(q.phone) : '—') + '</span></div><div class="row"><span>收費</span><span>' + (q.price ? esc(q.price) + '<span class="hint">（沿用舊的）</span>' : '<span class="hint">未設定</span>') + '</span></div>';
+  } else {
+    h += '<div class="grid2"><div><label>姓名</label><input class="f" maxlength="30" placeholder="例如：張先生" value="' + esc(q.name) + '" oninput="QA.name=this.value"></div>' +
+      '<div><label>電話（選填）</label><input class="f" inputmode="tel" placeholder="09xxxxxxxx" value="' + esc(q.phone) + '" oninput="QA.phone=this.value"></div>' +
+      '<div class="full"><label>收費（個案看不到）</label><select class="f" onchange="QA.price=this.value"><option value="">未設定</option>' + (D.set.prices || []).map(p => '<option' + (q.price === p ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select></div></div>';
+  }
+  h += '<button class="btn" style="margin-top:14px" ' + (busyReq ? 'disabled' : '') + ' onclick="qaSave()">新增預約</button></div>';
+  m.innerHTML = h;
+  const sb = m.querySelector('.sheetbox'); if (sb) sb.scrollTop = top;
+}
+async function qaSave() {
+  const q = QA; if (!q) return;
+  if (q.mode === 'old' && q.pick === '') return toast('請先選擇個案');
+  if (!String(q.name).trim()) return toast('請填寫姓名');
+  const o = q.mode === 'old' ? qaPeople()[q.pick] : null;
+  const f = { date: q.d, start: q.start, dur: q.dur, uid: o ? o.uid : '', name: String(q.name).trim(), phone: q.phone || '', price: q.price || '' };
+  const r = await act(() => api('deskAdd', f), r => [r.clash ? '⚠ 這個時段和其他預約重疊了，請再確認！' : '', r.viaLine ? '已新增，並用 LINE 通知個案' : '已新增（這位個案沒有 LINE，請另外通知）'].filter(Boolean).join('\n'));
+  if (r) closeQA();
 }
 
 /* ---- 電話預約 ---- */
