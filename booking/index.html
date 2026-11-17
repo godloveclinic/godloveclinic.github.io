@@ -503,7 +503,14 @@ function renderBook() {
 
 function renderMine() {
   let h = '';
-  if (!D.mine.length) h += '<div class="card hint" style="text-align:center">您目前沒有預約</div>';
+  if (!D.mine.length) {
+    h += '<div class="card hint" style="text-align:center">您目前沒有預約</div>';
+    if (!(D.me && D.me.reg)) h += '<div class="card"><b>第一次使用預約系統？</b><div class="hint" style="margin:6px 0 10px">請先輸入姓名與手機。如果是診所幫您預約的，送出後系統會自動對應到您的預約。<br><b style="color:#a14a56">姓名請輸入正確，不要打錯字，否則系統會找不到您的預約。</b></div>' +
+      (L.regErr ? '<div class="err">' + esc(L.regErr) + '</div>' : '') +
+      '<label>姓名</label><input class="f" id="reg-name" type="text" maxlength="30" placeholder="例：王小明" value="' + esc(L.regName || '') + '" oninput="L.regName=this.value">' +
+      '<label>手機</label><input class="f" id="reg-phone" type="tel" inputmode="numeric" maxlength="12" placeholder="例：0912345678" value="' + esc(L.regPhone || '') + '" oninput="L.regPhone=this.value">' +
+      '<button class="btn" style="width:100%;margin-top:10px" ' + (busyReq ? 'disabled' : '') + ' onclick="doRegister()">送出</button></div>';
+  }
   D.mine.forEach(b => {
     h += '<div class="card"><div class="bk"><div class="info"><b>' + whenTxt(b) + '</b><span class="badge st-' + b.status + '">' + b.status + '</span><div class="hint">' + durTxt(b.dur) + '</div></div></div>';
     if (b.offer) h += '<p class="hint" style="margin:8px 0 0;color:#a67a1f">⏰ ' + esc(D.set.who) + '需要調整這個時間，請到 LINE 訊息選擇新時間</p>';
@@ -549,6 +556,17 @@ async function doBook() {
   } catch (e) { busyReq = false; L.err = e.message; await load().catch(() => render()); scrollTo(0, 0); }
 }
 function startResched(id) { const b = D.mine.find(x => x.id === id); L.resched = id; L.tab = 'book'; L.date = b.date; L.dur = b.dur; L.start = null; L.err = ''; render(); scrollTo(0, 0); }
+async function doRegister() {
+  const name = (L.regName || '').trim(), phone = (L.regPhone || '').replace(/[^\d]/g, '');
+  if (!name) { L.regErr = '請填寫姓名'; render(); return; }
+  if (!/^09\d{8}$/.test(phone)) { L.regErr = '請填寫正確的手機號碼（例：0912345678）'; render(); return; }
+  L.regErr = ''; busyReq = true; render();
+  try {
+    const r = await api('register', { name, phone });
+    toast(r.linked ? '已記下資料，並對應到您的預約' : '已記下資料，謝謝您！');
+    busyReq = false; await load(r.state);
+  } catch (e) { busyReq = false; L.regErr = e.message; render(); }
+}
 async function doResched() {
   const id = L.resched;
   busyReq = true; render();
