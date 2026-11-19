@@ -699,7 +699,7 @@ function drawDT() {
     row('時間', md(b.date) + '（' + wdOf(b.date) + '）' + rng(b) + '（' + durTxt(b.dur) + '）') +
     row('狀態', stLabel(b.status) + (b.status === '待確認' ? '（待確認）' : '')) +
     row('電話／來源', b.phone ? esc(b.phone) : (b.uid ? 'LINE 預約' : '')) +
-    '<div class="row"><span>收費</span><span style="text-align:right">' + priceBadge(b) + ' <button class="dn" onclick="pricePick(\'' + b.id + '\')">修改</button></span></div>' +
+    '<div class="row"><span>收費</span><span style="text-align:right">' + priceTotal(b) + priceBadge(b) + ' <button class="dn" onclick="pricePick(\'' + b.id + '\')">修改</button></span></div>' +
     row('加收', b.extra ? '<span style="color:#c0392b">' + esc(b.extra) + '</span>' : '') +
     row('臨時取消', isOut(b) ? esc((b.leaveReason || '') + (b.fee ? '　' + b.fee : '')) : '') +
     row('備註', b.note ? esc(b.note) : '') +
@@ -767,6 +767,14 @@ function priceBadge(b) {
   if (!b.price) return '<span class="pr none">未設定收費</span>';
   const i = (D.set.prices || []).indexOf(b.price);
   return '<span class="pr p' + (i < 0 ? 3 : i % 4) + '">' + esc(b.price) + '</span>';
+}
+// 超過 1 小時：每多 30 分鐘加收固定金額（只算顯示，不改收費類別）
+const EXTRA30 = { '健保600': 300, '健保1200': 600, '自費1000': 300, '自費1600': 600 };
+function priceTotal(b) {
+  const e = EXTRA30[b && b.price], d = Number(b && b.dur);
+  if (!e || !(d > 60)) return '';
+  const base = parseInt(String(b.price).replace(/\D/g, ''), 10), tot = base + e * Math.ceil((d - 60) / 30);
+  return '<span style="font-weight:700;color:#a14a56">共 ' + tot.toLocaleString() + ' 元（' + durTxt(d) + '）</span> ';
 }
 const nameTap = b => canEdit() ? '<b class="ptap" onclick="pricePick(\'' + b.id + '\')">' + esc(b.name) + '</b>' : '<b>' + esc(b.name) + '</b>';
 let PP = null;
