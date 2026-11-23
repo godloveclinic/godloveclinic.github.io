@@ -705,7 +705,7 @@ function drawDT() {
     row('備註', b.note ? esc(b.note) : '') +
     row('改期紀錄', b.history ? esc(b.history) : '') +
     (b.offer ? '<div class="hint" style="color:#a67a1f;margin-top:6px">⏳ 已請個案改時間，等待個案選擇</div>' : '') +
-    '<div class="acts">' + actBtns(b) + '</div>' + (CO.id === b.id ? coEditor(b) : '') + '</div>';
+    '<div class="acts">' + actBtns(b) + '</div>' + (CO.id === b.id ? coEditor(b) : '') + (CC.id === b.id ? ccEditor(b) : '') + '</div>';
   m.querySelector('.dtbox').scrollTop = top;
 }
 function actBtns(b) {
@@ -713,6 +713,7 @@ function actBtns(b) {
   if (!canEdit()) return b.status === '已完成' ? '<b style="color:var(--main-d)">✔ 已完成</b>' : isOut(b) ? '✔ 未到' + (b.fee ? ' <span class="hint">' + esc(b.fee) + '</span>' : '') : '';
   if (ACTIVE.includes(b.status)) {
     let x = '<button class="dn" onclick="openCO(\'' + id + '\')">改約</button>';
+    if (b.date > today()) x += '<button class="dn" onclick="openCC(\'' + id + '\')">取消預約</button>';
     if (b.date <= today()) x += '<button class="dn" onclick="doNoShow(\'' + id + '\')">臨時取消</button>';
       if (b.date < today() || nowMs() >= finishAt(b)) x += '<button class="dn" onclick="markDone(\'' + id + '\')">本次會談完成</button>';
       else x += '<span class="hint">🔒 ' + m2t(Math.round((finishAt(b) - slotT(b.date, '00:00')) / 60000)) + ' 後可按「完成」</span>';
@@ -958,7 +959,31 @@ function renewFrom(id) {
   AD = { start: toMin(b.time), dur: b.dur, uid: '', from: b.uid ? b.id : '', name: b.name || '', phone: b.phone || c.phone || '', price: (isOnce(b) ? '' : (b.price || c.price || '')), fixed: !(isOnce(b) ? '' : (b.price || c.price || '')) ? false : true, opd: false, old: false };
   DK = addDays(b.date, 7); stab = 'add'; render(); scrollTo(0, 0); toast('已帶入 ' + (b.name || '') + ' 的資料，確認時間後按「新增預約」');
 }
-function openCO(id) { CO.id = id; CO.reason = ''; CO.opts = []; CO.d = null; render(); }
+let CC = { id: null, reason: '' };
+function openCC(id) { CC.id = id; CC.reason = ''; CO.id = null; render(); }
+function ccEditor(b) {
+  return '<div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px">' +
+    '<label>取消原因（選填，會通知' + (D.role === '諮商師' ? '診所' : '諮商師') + '）</label><input class="f" value="' + esc(CC.reason) + '" oninput="CC.reason=this.value" maxlength="40" placeholder="例如：個案臨時有事">' +
+    '<p class="hint">' + (b.uid ? '會用 LINE 通知個案。' : '這位個案沒有 LINE，請另外電話告知。') + '取消後這個時段會重新開放。</p>' +
+    '<div class="rowbtn"><button class="btn ghost sm" onclick="CC.id=null;render()">先不要</button><button class="btn sm" onclick="doCancelNow()">確定取消預約</button></div></div>';
+}
+async function doCancelNow() {
+  const b = D.books.find(x => x.id === CC.id); if (!b) return;
+  const msg = b.name + '　' + md(b.date) + '（' + wdOf(b.date) + '）' + rng(b) + (CC.reason.trim() ? '\n原因：' + CC.reason.trim() : '') + '\n\n確定要取消這筆預約嗎？';
+  if (!await askBox('取消預約', msg, [['確定取消', '', 'y'], ['先不要', 'ghost', '']])) return;
+  const r = await act(() => api('staffCancel', { id: b.id, reason: CC.reason.trim() }), r => r.viaLine ? '已取消，並通知個案與對方' : '已取消並通知對方（這位個案沒有 LINE，請電話告知）');
+  if (r) { CC.id = null; closeDT(); }
+  render();
+}
+async function moveNow() {
+  const b = D.books.find(x => x.id === CO.id), o = CO.opts[0]; if (!b || CO.opts.length !== 1) return;
+  const msg = b.name + '\n原：' + md(b.date) + '（' + wdOf(b.date) + '）' + rng(b) + '\n新：' + optTxt(o, b.dur) + (CO.reason.trim() ? '\n原因：' + CO.reason.trim() : '') + '\n\n直接改成這個時間？';
+  if (!await askBox('直接改約', msg, [['確定改約', '', 'y'], ['先不要', 'ghost', '']])) return;
+  const r = await act(() => api('moveBook', { id: b.id, date: o.date, time: o.time, reason: CO.reason.trim() }), r => r.viaLine ? '已改約，並通知個案與對方' : '已改約並通知對方（這位個案沒有 LINE，請電話告知）');
+  if (r) CO.id = null;
+  render();
+}
+function openCO(id) { CO.id = id; CC.id = null; CO.reason = ''; CO.opts = []; CO.d = null; render(); }
 function optProblem(b, o) {
   const s0 = toMin(o.time);
   if (slotT(o.date, o.time) <= nowMs()) return '已過';
@@ -1003,7 +1028,7 @@ function coEditor(b) {
     '<label>已選的時段（每段 ' + durTxt(b.dur) + '，最多 3 個）</label>' +
     (CO.opts.length ? CO.opts.map((o, i) => '<div class="set"><span>' + optTxt(o, b.dur) + '</span><button class="cancel" onclick="CO.opts.splice(' + i + ',1);render()">✕</button></div>').join('') : '<div class="hint">還沒有選</div>') +
     '<p class="hint">「未開放」是平常沒開放預約的時間，仍可以選。個案選好新時間或選擇另外再約後，原時段會先保留，系統會再問你要不要開放。不收 ' + D.set.fee + ' 元。</p>' +
-    '<div class="rowbtn"><button class="btn ghost sm" onclick="CO.id=null;render()">取消</button><button class="btn sm" ' + (CO.opts.length ? '' : 'disabled') + ' onclick="sendOffer()">傳給個案選擇</button></div></div>';
+    '<div class="rowbtn"><button class="btn ghost sm" onclick="CO.id=null;render()">取消</button><button class="btn sm" ' + (CO.opts.length ? '' : 'disabled') + ' onclick="sendOffer()">傳給個案選擇</button><button class="btn sm" ' + (CO.opts.length === 1 ? '' : 'disabled') + ' onclick="moveNow()">直接改成這個時段</button></div><p class="hint">「直接改成這個時段」只能選 1 個時段，會馬上改好，並通知對方（個案沒有 LINE 也可以用）。</p></div>';
 }
 async function sendOffer() {
   const r = await act(() => api('offer', { id: CO.id, opts: CO.opts, reason: CO.reason.trim() }), r => r.viaLine ? '已傳給個案，等待個案選擇（同時通知診所）' : '這位個案沒有 LINE，已通知診所，請電話聯絡');
