@@ -237,6 +237,22 @@ header.top2 p{margin:3px 0 0;font-size:13px;opacity:.9}
 .loading{text-align:center;color:var(--mute);padding:60px 0}
 .spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--main);border-radius:50%;margin:0 auto 12px;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
+button{transition:transform .08s,filter .08s}
+button:not(:disabled):active{transform:scale(.94);filter:brightness(.88)}
+button.ld{position:relative;color:transparent!important;pointer-events:none}
+button.ld::after{content:'';position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-9px 0 0 -9px;border:2px solid var(--main);border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+.btn.ld::after{border-color:#fff;border-top-color:transparent}
+#busy{position:fixed;inset:0;z-index:98;background:rgba(255,255,255,.45);display:none;align-items:center;justify-content:center}
+#busy.on{display:flex}
+#busy .bx{background:#3d3a35;color:#fff;border-radius:14px;padding:14px 20px;font-size:15px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+#busy .bx i{width:18px;height:18px;border:3px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+.toast.ok{background:#2f7d4a}.toast.err{background:#c0392b}
+.tap{filter:brightness(.8)!important;transform:scale(.93)!important;transition:none!important;box-shadow:0 0 0 4px rgba(207,77,102,.28)!important}
+.dn.tap,.chip.tap,.cancel.tap,.slot.tap,.sl.tap,.date.tap,.qa.tap,.bk2.tap,.delb.tap{background:var(--main)!important;color:#fff!important;border-color:var(--main)!important;filter:none!important}
+.who.tapme.tap,.ptap.tap,label.tap{transform:none!important;background:rgba(207,77,102,.14)!important;border-radius:6px}
+.who.tapme{transition:background .15s}
+.rip{position:fixed;z-index:120;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:rgba(207,77,102,.35);pointer-events:none;animation:rip .45s ease-out forwards}
+@keyframes rip{from{transform:scale(.3);opacity:1}to{transform:scale(1.6);opacity:0}}
 
 
 /* ===== 美化：粉圓字體、柔和暖色、診所 LOGO ===== */
@@ -271,7 +287,7 @@ header.top2 p{font-size:13px;letter-spacing:1px;opacity:.95;position:relative;z-
 <body>
 <header class="top2"><img class="logo" src="logo.png" alt="GodLove"><div><h1 id="title">主愛心理諮商</h1><p id="sub">線上預約</p></div></header>
 <div id="pbar"></div><main id="app"><div class="loading"><div class="spin"></div>載入中…</div></main>
-<div class="toast hide" id="toast"></div>
+<div class="toast hide" id="toast"></div><div id="busy"><div class="bx"><i></i><span>處理中，請稍候…</span></div></div>
 <script>
 /* ===== 設定：部署前請填好這兩個值 ===== */
 const CONFIG = {
@@ -356,7 +372,29 @@ const isStaff = () => D && ['諮商師', '診所', '代班'].includes(D.role);
 const canEdit = () => D && ['諮商師', '診所'].includes(D.role);
 
 /* ---------- 連線 ---------- */
-let pendingN = 0;
+let pendingN = 0, busyN = 0, busyT = null, lastBtn = null, lastBtnAt = 0, acting = false, actSeq = 0;
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest && e.target.closest('button'); if (b) { lastBtn = b; lastBtnAt = Date.now(); }
+  const t = e.target.closest && e.target.closest('button:not(:disabled),.who.tapme,.ptap,label.rd');   // 所有可以按的東西，按下去一定閃一下
+  if (t) { t.classList.add('tap'); setTimeout(() => t.classList.remove('tap'), 260); ripple(e.clientX, e.clientY); }
+}, true);
+/* 很多按鈕按下去畫面會馬上換掉（關閉、改約、修改…），按鈕本身的效果會來不及看到，
+   所以在手指按的位置另外畫一圈漣漪，畫面換掉也看得到；按鈕動作照常立刻執行，不延遲。 */
+function ripple(x, y) {
+  const r = document.createElement('div'); r.className = 'rip'; r.style.left = x + 'px'; r.style.top = y + 'px';
+  document.body.appendChild(r); setTimeout(() => r.remove(), 450);
+}
+document.addEventListener('touchstart', () => { }, { passive: true });   // 讓 iPhone 的按下效果正常顯示
+let ldBtn = null;
+function busy(d) {
+  busyN = Math.max(0, busyN + d);
+  const el = document.getElementById('busy'); if (!el) return;
+  clearTimeout(busyT);
+  if (busyN) {
+    el.classList.add('on');
+    if (d > 0 && busyN === 1 && !ldBtn && lastBtn && Date.now() - lastBtnAt < 2000 && document.contains(lastBtn)) { ldBtn = lastBtn; ldBtn.classList.add('ld'); }
+  } else busyT = setTimeout(() => { if (!busyN) { el.classList.remove('on'); if (ldBtn) { ldBtn.classList.remove('ld'); ldBtn = null; } } }, 120);
+}
 function bar(on) {
   const e = document.getElementById('pbar'); if (!e) return;
   if (on) { e.style.transition = 'none'; e.style.width = '0'; e.style.opacity = '1'; void e.offsetWidth; e.style.transition = 'width 8s cubic-bezier(.1,.8,.3,1)'; e.style.width = '85%'; }
@@ -365,13 +403,15 @@ function bar(on) {
 async function api(action, extra) {
   if (action !== 'init') await freshP;
   const mut = action !== 'init';
+  const blk = mut && action !== 'setOpen';   // 開放時段是背景自動存，不擋畫面
   if (mut && ++pendingN === 1) bar(true);
+  if (blk) busy(1);
   try {
     const r = await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, idToken, displayName: profileName }, extra || {})) });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || '發生錯誤，請稍後再試');
     return j;
-  } finally { if (mut && --pendingN === 0) bar(false); }
+  } finally { if (mut && --pendingN === 0) bar(false); if (blk) busy(-1); }
 }
 async function load(pre) {
   const y = window.scrollY, wasStale = STALE;
@@ -385,12 +425,30 @@ async function load(pre) {
   if (wasStale) window.scrollTo(0, y);
   freshRes();
 }
+/* 「檢查更新」：比對線上最新的頁面版本，順便把預約資料更新到最新 */
+const APP_VER = '20261127-1253';
+async function doCheckUpdate() {
+  if (acting) return;
+  busy(1);
+  let newer = false;
+  try {
+    const t = await (await fetch(location.pathname + '?chk=' + Date.now(), { cache: 'no-store' })).text();
+    const m = t.match(/const APP_VER = '([^']+)'/);
+    newer = !!(m && m[1] !== APP_VER);
+  } catch (e) { }
+  try { actSeq++; await load(); } catch (e) { busy(-1); toast('⚠ ' + e.message, 'err'); return; }
+  busy(-1);
+  if (!newer) { toast('✅ 已為最新版本', 'ok'); return; }
+  if (await askBox('有最新版本', '有最新版本，要立即更新嗎？', [['立即更新', '', 'y'], ['稍後再說', 'ghost', '']])) {
+    location.replace(location.origin + location.pathname + '?_v=' + Date.now());
+  }
+}
 async function act(fn, okMsg) {
-  if (busyReq) return;
-  busyReq = true; toast('處理中…');
-  try { const r = await fn(); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg); await load(r && r.state); return r; }
-  catch (e) { toast(e.message); }
-  finally { busyReq = false; }
+  if (acting) return;   // 只擋「同時按兩次」；背景自動更新不再讓按鈕沒反應
+  acting = true; busyReq = true; actSeq++; busy(1);
+  try { const r = await fn(); await load(r && r.state); if (okMsg) toast('✅ ' + (typeof okMsg === 'function' ? okMsg(r) : okMsg), 'ok'); return r; }
+  catch (e) { toast('⚠ ' + e.message, 'err'); }
+  finally { acting = false; busyReq = false; busy(-1); }
 }
 /* 自動更新：工作人員停在「預約表」時，每 30 秒、或切回畫面時，安靜地抓最新資料 */
 let lastLoad = 0;
@@ -398,16 +456,16 @@ async function autoRefresh() {
   if (busyReq || document.hidden || !D || !isStaff() || stab !== 'sheet' || Object.keys(openDirty).length) return;
   if (Date.now() - lastLoad < 25000) return;
   busyReq = true;
-  const y = window.scrollY;
-  try { await load(); window.scrollTo(0, y); } catch (e) { }
-  finally { busyReq = false; }
+  const y = window.scrollY, seq = actSeq;
+  try { const d = await api('init'); if (seq === actSeq && !acting) { await load(d); window.scrollTo(0, y); } } catch (e) { }
+  finally { if (!acting) busyReq = false; }
 }
 setInterval(autoRefresh, 30000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) autoRefresh(); });
 async function say(text) { try { if (window.liff && liff.isInClient()) await liff.sendMessages([{ type: 'text', text }]); } catch (e) { } }
 
 let toastT;
-function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.remove('hide'); t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { t.style.opacity = 0; setTimeout(() => t.classList.add('hide'), 300); }, 3000); }
+function toast(m, kind) { const t = document.getElementById('toast'); t.textContent = m; t.className = 'toast' + (kind ? ' ' + kind : ''); t.classList.remove('hide'); t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { t.style.opacity = 0; setTimeout(() => t.classList.add('hide'), 300); }, 3000); }
 
 async function main() {
   const cached = showCache();
@@ -625,7 +683,7 @@ function renderStaff() {
   const tabs = canEdit() ? [['sheet', '📒 預約表'], ['open', '🗓 開放時段'], ['add', '➕ 電話預約']] : [['sheet', '📒 預約表']];
   if (!tabs.some(t => t[0] === stab)) stab = 'sheet';
   let h = '<div class="chips">' + tabs.map(([k, l]) => '<button class="chip ' + (stab === k ? 'on' : '') + '" onclick="stab=\'' + k + '\';render()">' + l + '</button>').join('') +
-    '<button class="chip" onclick="load().then(()=>toast(\'已更新\'))">🔄 重新整理</button></div>';
+    '<button class="chip" onclick="doCheckUpdate()">🔄 檢查更新</button></div>';
   if (stab === 'sheet') h += renderSheet();
   else if (stab === 'open') h += renderOpen();
   else h += renderAdd();
@@ -931,10 +989,10 @@ async function flushOpen() {
   const dirty = openDirty; openDirty = {}; busyReq = true;
   let last = null;
   try { for (const d in dirty) last = await api('setOpen', { date: d, hours: dirty[d] }); }
-  catch (e) { toast(e.message); openDirty = {}; }
+  catch (e) { toast('⚠ ' + e.message, 'err'); openDirty = {}; }
   finally { busyReq = false; }
   if (Object.keys(openDirty).length) { openTimer = setTimeout(flushOpen, 100); return; }
-  try { await load(last && last.state); } catch (e) { }
+  try { await load(last && last.state); if (last) toast('✅ 開放時段已儲存', 'ok'); } catch (e) { }
 }
 function toggleHour(hr) {
   const cur = (D.open[coDate] || []).slice(), i = cur.indexOf(hr);
