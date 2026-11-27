@@ -409,7 +409,9 @@ async function api(action, extra) {
   try {
     const r = await fetch(CONFIG.API_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, idToken, displayName: profileName }, extra || {})) });
     const j = await r.json();
+    if (!j.ok && /登入已過期/.test(j.error || '') && relogin()) throw new Error('正在重新登入 LINE…');
     if (!j.ok) throw new Error(j.error || '發生錯誤，請稍後再試');
+    if (action === 'init') { try { sessionStorage.removeItem('gl_relogin'); } catch (e) { } }
     return j;
   } finally { if (mut && --pendingN === 0) bar(false); if (blk) busy(-1); }
 }
@@ -426,7 +428,7 @@ async function load(pre) {
   freshRes();
 }
 /* 「檢查更新」：比對線上最新的頁面版本，順便把預約資料更新到最新 */
-const APP_VER = '20261127-1253';
+const APP_VER = '20261127-1257';
 async function doCheckUpdate() {
   if (acting) return;
   busy(1);
@@ -467,12 +469,27 @@ async function say(text) { try { if (window.liff && liff.isInClient()) await lif
 let toastT;
 function toast(m, kind) { const t = document.getElementById('toast'); t.textContent = m; t.className = 'toast' + (kind ? ' ' + kind : ''); t.classList.remove('hide'); t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { t.style.opacity = 0; setTimeout(() => t.classList.add('hide'), 300); }, 3000); }
 
+/* LINE 登入憑證約 1 小時過期。LINE App 裡每次開都會換新；電腦瀏覽器不會，所以要自己重新登入 */
+function tokenOld() {
+  try { const t = liff.getDecodedIDToken(); return !idToken || !t || !t.exp || t.exp * 1000 < Date.now() + 120000; } catch (e) { return false; }
+}
+function relogin() {
+  if (window.liff && liff.isInClient()) return false;
+  let n = 0; try { n = Number(sessionStorage.getItem('gl_relogin') || 0); } catch (e) { }
+  if (n >= 2) return false;   // 避免一直重新整理
+  try { sessionStorage.setItem('gl_relogin', String(n + 1)); } catch (e) { }
+  toast('LINE 登入已過期，正在重新登入…');
+  try { liff.logout(); } catch (e) { }
+  liff.login({ redirectUri: location.origin + location.pathname });
+  return true;
+}
 async function main() {
   const cached = showCache();
   try {
     await liff.init({ liffId: CONFIG.LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
     idToken = liff.getIDToken();
+    if (tokenOld()) { relogin(); return; }   // 電腦瀏覽器會留著過期的登入，過期就自動重新登入
     try { profileName = localStorage.getItem('gl_pn') || ''; } catch (e) { }
     liff.getProfile().then(function (p) {            // 暱稱在背景取得，不擋住畫面
       profileName = p.displayName || profileName;
