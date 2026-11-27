@@ -658,6 +658,11 @@ const noShowCell = b => {
 };
 const laterOf = b => D.books.find(x => x.id !== b.id && ACTIVE.includes(x.status) && (x.date + x.time) > (b.date + b.time) && x.name === b.name);
 const OPD = '要門診';
+const NEWC = '新案';
+const hasNew = b => String((b && b.note) || '').split('；').includes(NEWC);
+const newTag = b => hasNew(b) ? '<span class="pill" style="background:#fde8f0;color:#b03a6b;margin-left:4px">新案</span>' : '';
+const joinNote = (a, nw) => [a, nw ? NEWC : ''].filter(Boolean).join('；');
+const newBox = (obj, fn) => '<div class="full" style="margin-top:2px"><label class="rd" style="margin:0"><input type="checkbox" ' + (obj.nw ? 'checked' : '') + ' onchange="' + fn + '(\'nw\',this.checked)"> 新案（第一次來）</label></div>';
 /* 新案（11 月後）預設自費；勾「要門診」才用健保價，而且只套用這一次，下次預約不會帶入。勾「舊案」則健保價照舊一直沿用。 */
 const flagNote = (opd, old) => opd ? (old ? OPD + '（舊案）' : OPD) : '';
 const isOnce = b => { const n = (b && b.note) || ''; return n.includes(OPD) && !n.includes('舊案'); };
@@ -695,7 +700,7 @@ function drawDT() {
   const top = old ? old.scrollTop : 0;
   if (!m) { m = document.createElement('div'); m.id = 'dt'; m.className = 'mask'; m.onclick = e => { if (e.target === m) closeDT(); }; document.body.appendChild(m); }
   const row = (k, v) => v ? '<div class="row"><span>' + k + '</span><span style="text-align:right">' + v + '</span></div>' : '';
-  m.innerHTML = '<div class="sheetbox dtbox"><div style="display:flex;justify-content:space-between;align-items:center"><h3>' + esc(b.name) + '</h3><button class="dn" onclick="closeDT()">✕ 關閉</button></div>' +
+  m.innerHTML = '<div class="sheetbox dtbox"><div style="display:flex;justify-content:space-between;align-items:center"><h3>' + esc(b.name) + newTag(b) + '</h3><button class="dn" onclick="closeDT()">✕ 關閉</button></div>' +
     row('時間', md(b.date) + '（' + wdOf(b.date) + '）' + rng(b) + '（' + durTxt(b.dur) + '）') +
     row('狀態', stLabel(b.status) + (b.status === '待確認' ? '（待確認）' : '')) +
     row('電話／來源', b.phone ? esc(b.phone) : (b.uid ? 'LINE 預約' : '')) +
@@ -703,6 +708,7 @@ function drawDT() {
     row('加收', b.extra ? '<span style="color:#c0392b">' + esc(b.extra) + '</span>' : '') +
     row('臨時取消', isOut(b) ? esc((b.leaveReason || '') + (b.fee ? '　' + b.fee : '')) : '') +
     row('備註', b.note ? esc(b.note) : '') +
+    (canEdit() && ACTIVE.includes(b.status) ? '<div class="row"><span>標記</span><span style="text-align:right"><label class="rd" style="margin:0"><input type="checkbox" ' + (hasNew(b) ? 'checked' : '') + ' onchange="setNew(\'' + b.id + '\',this.checked)"> 新案（第一次來）</label></span></div>' : '') +
     row('改期紀錄', b.history ? esc(b.history) : '') +
     (b.offer ? '<div class="hint" style="color:#a67a1f;margin-top:6px">⏳ 已請個案改時間，等待個案選擇</div>' : '') +
     '<div class="acts">' + actBtns(b) + '</div>' + (CO.id === b.id ? coEditor(b) : '') + (CC.id === b.id ? ccEditor(b) : '') + '</div>';
@@ -725,6 +731,10 @@ function actBtns(b) {
     return '<button class="dn on" onclick="undoDone(\'' + id + '\')">✔ 已完成</button>' + (nx ? '<span class="hint">下一次：' + md(nx.date) + ' ' + nx.time + '</span>' : '<button class="dn pri" onclick="renewFrom(\'' + id + '\')">預約下一次</button>');
   }
   return '';
+}
+async function setNew(id, on) {
+  const r = await act(() => api('setNew', { id, on }), () => on ? '已標記為新案' : '已取消新案標記');
+  if (r) drawDT();
 }
 /* 頁面內的確認視窗（瀏覽器內建的 confirm 在 LINE 或預覽視窗裡可能被擋掉，按了會完全沒反應） */
 function askBox(title, text, btns) {
@@ -777,7 +787,7 @@ function priceTotal(b) {
   const base = parseInt(String(b.price).replace(/\D/g, ''), 10), tot = base + e * Math.ceil((d - 60) / 30);
   return '<span style="font-weight:700;color:#a14a56">共 ' + tot.toLocaleString() + ' 元（' + durTxt(d) + '）</span> ';
 }
-const nameTap = b => canEdit() ? '<b class="ptap" onclick="pricePick(\'' + b.id + '\')">' + esc(b.name) + '</b>' : '<b>' + esc(b.name) + '</b>';
+const nameTap = b => (canEdit() ? '<b class="ptap" onclick="pricePick(\'' + b.id + '\')">' + esc(b.name) + '</b>' : '<b>' + esc(b.name) + '</b>') + newTag(b);
 let PP = null;
 function pricePick(id) {
   const b = D.books.find(x => x.id === id); if (!b) return;
@@ -836,7 +846,7 @@ function dayCard(d, extra) {
           const leave = b.status === '當日請假';
           if (toMin(b.time) >= a) {
             const tm = (toMin(b.time) % 60 || b.dur !== 60) ? ' <span class="hint">' + rng(b) + '</span>' : '';
-            who += '<div class="who' + (leave ? ' leave' : '') + (canEdit() ? ' tapme' : '') + '"' + (canEdit() ? ' onclick="openDT(\'' + b.id + '\')"' : '') + '><b>' + esc(b.name) + '</b>' + tm + '<div class="mini">' + contactOf(b) + ' ' + priceBadge(b) + '</div>' + gridNote(b) + '</div>';
+            who += '<div class="who' + (leave ? ' leave' : '') + (canEdit() ? ' tapme' : '') + '"' + (canEdit() ? ' onclick="openDT(\'' + b.id + '\')"' : '') + '><b>' + esc(b.name) + '</b>' + newTag(b) + tm + '<div class="mini">' + contactOf(b) + ' ' + priceBadge(b) + '</div>' + gridNote(b) + '</div>';
           } else who += '<div class="who cont">↳ ' + esc(b.name) + '（續到 ' + endOf(b) + '）</div>';
         });
         blk.forEach(x => { who += '<div class="who cont">🔒 諮商師保留 ' + x.time + '～' + m2t(toMin(x.time) + +x.dur) + '</div>'; });
@@ -956,7 +966,7 @@ function renewFrom(id) {
   closeDT();   // 續約：帶入這位個案的資料，預設下週同一天同一時段，直接到「電話預約」選時間
   const b = D.books.find(x => x.id === id); if (!b) return;
   const c = (D.clients || []).find(x => x.uid === b.uid) || {};
-  AD = { start: toMin(b.time), dur: b.dur, uid: '', from: b.uid ? b.id : '', name: b.name || '', phone: b.phone || c.phone || '', price: (isOnce(b) ? '' : (b.price || c.price || '')), fixed: !(isOnce(b) ? '' : (b.price || c.price || '')) ? false : true, opd: false, old: false };
+  AD = { start: toMin(b.time), dur: b.dur, uid: '', from: b.uid ? b.id : '', name: b.name || '', phone: b.phone || c.phone || '', price: (isOnce(b) ? '' : (b.price || c.price || '')), fixed: !(isOnce(b) ? '' : (b.price || c.price || '')) ? false : true, opd: false, old: false, nw: false };
   DK = addDays(b.date, 7); stab = 'add'; render(); scrollTo(0, 0); toast('已帶入 ' + (b.name || '') + ' 的資料，確認時間後按「新增預約」');
 }
 let CC = { id: null, reason: '' };
@@ -1049,18 +1059,18 @@ function qaPeople() {
   });
   return Object.keys(m).map(k => m[k]).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
 }
-function openQA(d, start) { QA = { d, start, dur: 60, mode: 'old', pick: '', name: '', phone: '', price: '', opd: false, old: false, free: false }; drawQA(); }
-function qaFlag(k, v) { QA[k] = v; QA.price = priceFix(QA.price, QA.opd || QA.old); drawQA(); }
+function openQA(d, start) { QA = { d, start, dur: 60, mode: 'old', pick: '', name: '', phone: '', price: '', opd: false, old: false, nw: false, free: false }; drawQA(); }
+function qaFlag(k, v) { QA[k] = v; if (k !== 'nw') QA.price = priceFix(QA.price, QA.opd || QA.old); drawQA(); }
 function closeQA() { QA = null; const m = document.getElementById('qa'); if (m) m.remove(); }
 function qaPick(i) {
   QA.pick = i; const o = qaPeople()[i];
-  if (o) { QA.name = o.name; QA.phone = o.phone; QA.price = o.price; QA.free = !o.price; QA.opd = false; QA.old = false; }
+  if (o) { QA.name = o.name; QA.phone = o.phone; QA.price = o.price; QA.free = !o.price; QA.opd = false; QA.old = false; QA.nw = false; }
   drawQA();
 }
 const qaReady = () => !!QA && String(QA.name || '').trim() !== '' && (QA.mode === 'new' || QA.pick !== '');
 const qaHint = () => qaReady() ? '新增預約' : (QA && QA.mode === 'old' ? '請先選擇個案' : '請先填寫姓名');
 function qaBtn() { const b = document.getElementById('qa-go'); if (b) { b.disabled = !qaReady(); b.textContent = qaHint(); } }
-const qaPriceBlock = q => opdBoxes(q, 'qaFlag') + '<div class="full"><label>收費（個案看不到）</label><select class="f" onchange="QA.price=this.value"><option value="">請選擇收費</option>' + priceOpts(q.opd || q.old).map(p => '<option' + (q.price === p ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select></div>';
+const qaPriceBlock = q => newBox(q, 'qaFlag') + opdBoxes(q, 'qaFlag') + '<div class="full"><label>收費（個案看不到）</label><select class="f" onchange="QA.price=this.value"><option value="">請選擇收費</option>' + priceOpts(q.opd || q.old).map(p => '<option' + (q.price === p ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select></div>';
 function drawQA() {
   if (!QA) return;
   let m = document.getElementById('qa');
@@ -1072,10 +1082,10 @@ function drawQA() {
   let h = '<div class="sheetbox dtbox"><div style="display:flex;justify-content:space-between;align-items:center"><h3>快速預約</h3><button class="dn" onclick="closeQA()">✕ 關閉</button></div>' +
     '<div class="summary">' + md(q.d) + '（週' + wdOf(q.d) + '）' + m2t(q.start) + '～' + m2t(q.start + q.dur) + '（' + durTxt(q.dur) + '）</div>' +
     '<label>預約多久</label><div class="durs">' + durs.map(x => '<button class="' + (q.dur === x ? 'on' : '') + '" ' + (staffState(q.d, q.start, x) === 'ok' ? '' : 'disabled') + ' onclick="QA.dur=' + x + ';drawQA()">' + durTxt(x) + '</button>').join('') + '</div>' +
-    '<label>個案</label><div class="seg"><button class="' + (q.mode === 'old' ? 'on' : '') + '" onclick="QA.mode=\'old\';drawQA()">舊案</button><button class="' + (q.mode === 'new' ? 'on' : '') + '" onclick="QA.mode=\'new\';QA.pick=\'\';QA.name=\'\';QA.phone=\'\';QA.price=\'\';QA.opd=false;QA.old=false;QA.free=false;drawQA()">新個案</button></div>';
+    '<label>個案</label><div class="seg"><button class="' + (q.mode === 'old' ? 'on' : '') + '" onclick="QA.mode=\'old\';drawQA()">舊案</button><button class="' + (q.mode === 'new' ? 'on' : '') + '" onclick="QA.mode=\'new\';QA.pick=\'\';QA.name=\'\';QA.phone=\'\';QA.price=\'\';QA.opd=false;QA.old=false;QA.nw=false;QA.free=false;drawQA()">新個案</button></div>';
   if (q.mode === 'old') {
     h += '<select class="f" onchange="qaPick(this.value)"><option value="">請選擇個案</option>' + ppl.map((o, i) => '<option value="' + i + '"' + (String(q.pick) === String(i) ? ' selected' : '') + '>' + esc(o.name) + (o.phone ? '　' + esc(o.phone) : '') + '</option>').join('') + '</select>';
-    if (q.pick !== '') h += '<div class="row"><span>電話</span><span>' + (q.phone ? esc(q.phone) : '—') + '</span></div>' + (q.free ? '<div class="grid2">' + qaPriceBlock(q) + '</div><div class="hint">這位個案目前沒有設定收費，請依本次情形選擇</div>' : '<div class="row"><span>收費</span><span>' + esc(q.price) + '<span class="hint">（沿用舊的）</span></span></div>');
+    if (q.pick !== '') h += '<div class="row"><span>電話</span><span>' + (q.phone ? esc(q.phone) : '—') + '</span></div>' + (q.free ? '<div class="grid2">' + qaPriceBlock(q) + '</div><div class="hint">這位個案目前沒有設定收費，請依本次情形選擇</div>' : '<div class="grid2">' + newBox(q, 'qaFlag') + '</div><div class="row"><span>收費</span><span>' + esc(q.price) + '<span class="hint">（沿用舊的）</span></span></div>');
   } else {
     h += '<div class="grid2"><div><label>姓名</label><input class="f" maxlength="30" placeholder="例如：張先生" value="' + esc(q.name) + '" oninput="QA.name=this.value;qaBtn()"></div>' +
       '<div><label>電話（選填）</label><input class="f" inputmode="tel" placeholder="09xxxxxxxx" value="' + esc(q.phone) + '" oninput="QA.phone=this.value"></div>' + qaPriceBlock(q) + '</div>';
@@ -1090,14 +1100,14 @@ async function qaSave() {
   if (!String(q.name).trim()) return toast('請填寫姓名');
   const o = q.mode === 'old' ? qaPeople()[q.pick] : null;
   const flags = q.mode === 'new' || q.free;
-  const f = { date: q.d, start: q.start, dur: q.dur, uid: o ? o.uid : '', name: String(q.name).trim(), phone: q.phone || '', price: q.price || '', note: flags ? flagNote(q.opd, q.old) : '' };
+  const f = { date: q.d, start: q.start, dur: q.dur, uid: o ? o.uid : '', name: String(q.name).trim(), phone: q.phone || '', price: q.price || '', note: joinNote(flags ? flagNote(q.opd, q.old) : '', q.nw) };
   const r = await act(() => deskAddApi(f, flags && q.opd && !q.old), r => [r.clash ? '⚠ 這個時段和其他預約重疊了，請再確認！' : '', r.viaLine ? '已新增，並用 LINE 通知個案' : '已新增（這位個案沒有 LINE，請另外通知）'].filter(Boolean).join('\n'));
   if (r) closeQA();
 }
 
 /* ---- 電話預約 ---- */
-let AD = { start: null, dur: 60, uid: '', name: '', phone: '', price: '', opd: false, old: false };
-function adFlag(k, v) { AD[k] = v; AD.price = priceFix(AD.price, AD.opd || AD.old); render(); }
+let AD = { start: null, dur: 60, uid: '', name: '', phone: '', price: '', opd: false, old: false, nw: false };
+function adFlag(k, v) { AD[k] = v; if (k !== 'nw') AD.price = priceFix(AD.price, AD.opd || AD.old); render(); }
 function staffState(d, s, dur) {
   if (slotT(d, m2t(s)) <= nowMs()) return 'past';
   let closed = false;
@@ -1131,7 +1141,7 @@ function renderAdd() {
     D.clients.slice().sort((a, b) => (b.booked - a.booked) || String(a.name).localeCompare(String(b.name), 'zh-Hant')).map(c => '<option value="' + esc(c.uid) + '" data-n="' + esc(c.name) + '" data-p="' + esc(c.price || '') + '" data-t="' + esc(c.phone || '') + '"' + (AD.uid === c.uid ? ' selected' : '') + '>' + esc(c.name) + (c.booked ? '（曾用 LINE 預約）' : '（LINE 好友）') + '</option>').join('') + '</select></div>' +
     '<div><label>姓名</label><input class="f" id="da-n" maxlength="30" placeholder="例如：張先生" value="' + esc(AD.name) + '" oninput="AD.name=this.value"></div>' +
     '<div><label>電話（選填）</label><input class="f" id="da-p" inputmode="tel" placeholder="09xxxxxxxx" value="' + esc(AD.phone) + '" oninput="AD.phone=this.value"></div>' +
-    (AD.fixed ? '' : opdBoxes(AD, 'adFlag')) + '<div class="full"><label>收費（個案看不到）</label><select class="f" id="da-pr" onchange="AD.price=this.value"><option value="">' + (AD.fixed ? '未設定' : '請選擇收費') + '</option>' + (AD.fixed ? (D.set.prices || []) : priceOpts(AD.opd || AD.old)).map(p => '<option' + (AD.price === p ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select></div></div></div>';
+    newBox(AD, 'adFlag') + (AD.fixed ? '' : opdBoxes(AD, 'adFlag')) + '<div class="full"><label>收費（個案看不到）</label><select class="f" id="da-pr" onchange="AD.price=this.value"><option value="">' + (AD.fixed ? '未設定' : '請選擇收費') + '</option>' + (AD.fixed ? (D.set.prices || []) : priceOpts(AD.opd || AD.old)).map(p => '<option' + (AD.price === p ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select></div></div></div>';
   const ready = AD.start != null;
   h += '<div class="card">' + (ready ? '<div class="summary">' + md(DK) + '（週' + wdOf(DK) + '）' + m2t(AD.start) + '～' + m2t(AD.start + AD.dur) + '（' + durTxt(AD.dur) + '）</div>' : '') +
     '<button class="btn" ' + (ready && !busyReq ? '' : 'disabled') + ' onclick="deskAdd()">' + (ready ? '新增預約' : '請先選擇上面的時段') + '</button>' +
@@ -1142,16 +1152,16 @@ function adPickLine(sel) {
   const o = sel.selectedOptions[0]; AD.uid = sel.value; AD.from = '';
   if (o && o.dataset.n) AD.name = o.dataset.n;
   if (o && o.dataset.p) AD.price = o.dataset.p;
-  AD.fixed = !!(o && o.dataset.p); AD.opd = false; AD.old = false;
+  AD.fixed = !!(o && o.dataset.p); AD.opd = false; AD.old = false; AD.nw = false;
   if (o && o.dataset.t && !AD.phone) AD.phone = o.dataset.t;
   render();
 }
 async function deskAdd() {
-  const f = { date: DK, start: AD.start, dur: AD.dur, uid: AD.uid, from: AD.from || '', name: AD.name.trim(), phone: AD.phone, price: AD.price, note: AD.fixed ? '' : flagNote(AD.opd, AD.old) };
+  const f = { date: DK, start: AD.start, dur: AD.dur, uid: AD.uid, from: AD.from || '', name: AD.name.trim(), phone: AD.phone, price: AD.price, note: joinNote(AD.fixed ? '' : flagNote(AD.opd, AD.old), AD.nw) };
   if (AD.start == null) return toast('請先選擇時段');
   if (!f.name) return toast('請填寫姓名');
   const r = await act(() => deskAddApi(f, !AD.fixed && AD.opd && !AD.old), r => [r.clash ? '⚠ 這個時段和其他預約重疊了，請再確認！' : '', r.closed ? '⚠ 這段時間沒有開放，請確認諮商師可以' : '', r.viaLine ? '已用 LINE 通知個案' : '這位個案沒有 LINE，請另外通知'].filter(Boolean).join('\n'));
-  if (r) { AD = { start: null, dur: 60, uid: '', name: '', phone: '', price: '', opd: false, old: false }; stab = 'sheet'; shSub = 'today'; render(); }
+  if (r) { AD = { start: null, dur: 60, uid: '', name: '', phone: '', price: '', opd: false, old: false, nw: false }; stab = 'sheet'; shSub = 'today'; render(); }
 }
 
 main();
