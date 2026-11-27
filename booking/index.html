@@ -251,6 +251,8 @@ button.ld::after{content:'';position:absolute;left:50%;top:50%;width:14px;height
 .dn.tap,.chip.tap,.cancel.tap,.slot.tap,.sl.tap,.date.tap,.qa.tap,.bk2.tap,.delb.tap{background:var(--main)!important;color:#fff!important;border-color:var(--main)!important;filter:none!important}
 .who.tapme.tap,.ptap.tap,label.tap{transform:none!important;background:rgba(207,77,102,.14)!important;border-radius:6px}
 .who.tapme{transition:background .15s}
+/* 圓體字型檔只收了常用字，個案姓名、備註等會變動的文字改用系統字型，避免兩種字型混在一起字距跑掉 */
+.who,.who b,.ptap,.dtbox h3,.dtbox .row span:last-child,.bk .info,.mini,input,textarea,select,option{font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif}
 .rip{position:fixed;z-index:120;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:rgba(207,77,102,.35);pointer-events:none;animation:rip .45s ease-out forwards}
 @keyframes rip{from{transform:scale(.3);opacity:1}to{transform:scale(1.6);opacity:0}}
 
@@ -428,7 +430,7 @@ async function load(pre) {
   freshRes();
 }
 /* 「檢查更新」：比對線上最新的頁面版本，順便把預約資料更新到最新 */
-const APP_VER = '20261127-1257';
+const APP_VER = '20261127-1440';
 async function doCheckUpdate() {
   if (acting) return;
   busy(1);
